@@ -20,10 +20,6 @@ under `UIAppFonts`, and bundled via the `Resources` group):
 | `Inter_18pt-SemiBold.ttf` | `Inter18pt-SemiBold` |
 | `Inter_18pt-Bold.ttf` | `Inter18pt-Bold` |
 
-> The current Google Fonts Inter download ships optical-size variants (`Inter_18pt-*`,
-> `_24pt`, `_28pt`). We register the **18pt** set for UI text; the 24pt/28pt files are
-> not used and can be removed to keep the bundle lean.
-
 ## Verifying PostScript names
 
 `Font.custom(_:size:)` matches on **PostScript name**, not filename. If text still
