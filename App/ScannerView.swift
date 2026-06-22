@@ -1,9 +1,10 @@
 import SwiftUI
 import AVFoundation
-import VisionKit
 
-// MARK: - Scanner View (Barcode + OCR via VisionKit & AVFoundation)
+// MARK: - Scanner View (Barcode via AVFoundation)
 
+/// Full-screen camera scanner that detects product barcodes and presents a
+/// confirmation card before adding the item via ``onItemScanned``.
 struct ScannerView: View {
     @StateObject private var viewModel = ScannerViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -239,6 +240,8 @@ struct ScannerView: View {
 
 // MARK: - Scanner ViewModel
 
+/// Drives the capture session: configures the camera, surfaces detected barcodes as a
+/// ``ScanResult``, and manages flash and confirmation state.
 @MainActor
 final class ScannerViewModel: ObservableObject {
     @Published var scanResult: ScanResult?
@@ -252,19 +255,21 @@ final class ScannerViewModel: ObservableObject {
     init() {
         scanDelegate.onBarcodeDetected = { [weak self] barcode in
             Task { @MainActor in
-                guard self?.scanResult?.barcode == nil else { return }
-                self?.scanResult = ScanResult(
-                    productName: self?.productNameFromBarcode(barcode),
+                guard let self, self.scanResult?.barcode == nil else { return }
+                self.scanResult = ScanResult(
+                    productName: self.productNameFromBarcode(barcode),
                     expirationDate: nil,
                     barcode: barcode
                 )
+                // Reveal the confirmation card once a barcode is captured.
+                self.showConfirmation = true
             }
         }
     }
 
     func startScanning() {
         guard AVCaptureDevice.authorizationStatus(for: .video) != .denied else {
-            requestCameraAccess()
+            Task { await requestCameraAccess() }
             return
         }
 
@@ -295,11 +300,10 @@ final class ScannerViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private func requestCameraAccess() {
-        AVCaptureDevice.requestAccess(for: .video) { granted in
-            if granted {
-                Task { @MainActor in self.setupCaptureSession() }
-            }
+    private func requestCameraAccess() async {
+        let granted = await AVCaptureDevice.requestAccess(for: .video)
+        if granted {
+            setupCaptureSession()
         }
     }
 
@@ -342,19 +346,11 @@ final class ScannerViewModel: ObservableObject {
         let prefix = String(barcode.prefix(6))
         return knownProducts[prefix] ?? "Scanned Product"
     }
-
-    func simulateScan() {
-        scanResult = ScanResult(
-            productName: "Almond Milk",
-            expirationDate: Calendar.current.date(byAdding: .month, value: 6, to: Date()),
-            barcode: "0415700001234"
-        )
-        showConfirmation = true
-    }
 }
 
 // MARK: - AVCaptureMetadataOutput Delegate
 
+/// Bridges `AVCaptureMetadataOutput` callbacks into a simple barcode-string closure.
 final class ScannerDelegate: NSObject, AVCaptureMetadataOutputObjectsDelegate {
     var onBarcodeDetected: ((String) -> Void)?
 
@@ -371,6 +367,7 @@ final class ScannerDelegate: NSObject, AVCaptureMetadataOutputObjectsDelegate {
 
 // MARK: - Camera Preview UIViewRepresentable
 
+/// Hosts an `AVCaptureVideoPreviewLayer` so the live camera feed can be shown in SwiftUI.
 struct CameraPreviewLayer: UIViewRepresentable {
     let session: AVCaptureSession
 
@@ -394,49 +391,9 @@ struct CameraPreviewLayer: UIViewRepresentable {
     }
 }
 
-// MARK: - DataScanner (VisionKit OCR for Expiry Text)
-
-@available(iOS 16.0, *)
-struct DataScannerView: UIViewControllerRepresentable {
-    var onTextRecognized: ((String) -> Void)?
-
-    func makeUIViewController(context: Context) -> DataScannerViewController {
-        let scanner = DataScannerViewController(
-            recognizedDataTypes: [.text()],
-            qualityLevel: .balanced,
-            recognizesMultipleItems: false,
-            isHighFrameRateTrackingEnabled: false,
-            isHighlightingEnabled: true
-        )
-        scanner.delegate = context.coordinator
-        return scanner
-    }
-
-    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {
-        try? uiViewController.startScanning()
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onTextRecognized: onTextRecognized)
-    }
-
-    class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        var onTextRecognized: ((String) -> Void)?
-
-        init(onTextRecognized: ((String) -> Void)?) {
-            self.onTextRecognized = onTextRecognized
-        }
-
-        func dataScanner(_ dataScanner: DataScannerViewController, didTapOn item: RecognizedItem) {
-            if case .text(let text) = item {
-                onTextRecognized?(text.transcript)
-            }
-        }
-    }
-}
-
 // MARK: - Scan Bracket Shape
 
+/// Decorative framing brackets drawn around a scan target area.
 struct ScanBracket: View {
     let width: CGFloat
     let height: CGFloat
@@ -464,6 +421,7 @@ struct ScanBracket: View {
     }
 }
 
+/// A single rounded L-shaped corner used to build ``ScanBracket``.
 struct CornerBracket: View {
     let size: CGFloat
     let lineWidth: CGFloat
@@ -483,6 +441,7 @@ struct CornerBracket: View {
 
 // MARK: - Scan Line Animation
 
+/// Animated horizontal line that sweeps up and down to suggest active scanning.
 struct ScanLineView: View {
     @State private var offset: CGFloat = -60
 
@@ -508,6 +467,7 @@ struct ScanLineView: View {
 
 // MARK: - Pulse Animation Modifier
 
+/// Applies a repeating scale/opacity pulse to its content (used for the live indicator dot).
 struct PulseModifier: ViewModifier {
     @State private var isPulsing = false
 

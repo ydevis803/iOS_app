@@ -4,75 +4,82 @@ import SwiftUI
 // Extracted from HTML/CSS assets & DESIGN.md
 
 // MARK: - Color Palette (Material Design 3 Tonal)
+// Backed by Color Sets in Assets.xcassets (per §4 Xcode Readiness). The asset
+// name matches each token name, enabling future light/dark variants in the catalog.
 
 extension Color {
     // Primary
-    static let ftPrimary = Color(hex: 0x006E1C)
-    static let ftOnPrimary = Color.white
-    static let ftPrimaryContainer = Color(hex: 0x4CAF50)
-    static let ftOnPrimaryContainer = Color(hex: 0x003C0B)
-    static let ftPrimaryFixed = Color(hex: 0x94F990)
-    static let ftPrimaryFixedDim = Color(hex: 0x78DC77)
-    static let ftOnPrimaryFixed = Color(hex: 0x002204)
-    static let ftOnPrimaryFixedVariant = Color(hex: 0x005313)
-    static let ftInversePrimary = Color(hex: 0x78DC77)
+    static let ftPrimary = Color("ftPrimary", bundle: .main)
+    static let ftOnPrimary = Color("ftOnPrimary", bundle: .main)
+    static let ftPrimaryContainer = Color("ftPrimaryContainer", bundle: .main)
+    static let ftOnPrimaryContainer = Color("ftOnPrimaryContainer", bundle: .main)
+    static let ftPrimaryFixed = Color("ftPrimaryFixed", bundle: .main)
+    static let ftPrimaryFixedDim = Color("ftPrimaryFixedDim", bundle: .main)
+    static let ftOnPrimaryFixed = Color("ftOnPrimaryFixed", bundle: .main)
+    static let ftOnPrimaryFixedVariant = Color("ftOnPrimaryFixedVariant", bundle: .main)
+    static let ftInversePrimary = Color("ftInversePrimary", bundle: .main)
 
     // Secondary
-    static let ftSecondary = Color(hex: 0x42673F)
-    static let ftOnSecondary = Color.white
-    static let ftSecondaryContainer = Color(hex: 0xC3EEBB)
-    static let ftOnSecondaryContainer = Color(hex: 0x486D45)
-    static let ftSecondaryFixed = Color(hex: 0xC3EEBB)
-    static let ftSecondaryFixedDim = Color(hex: 0xA8D1A1)
-    static let ftOnSecondaryFixed = Color(hex: 0x002204)
-    static let ftOnSecondaryFixedVariant = Color(hex: 0x2B4F2A)
+    static let ftSecondary = Color("ftSecondary", bundle: .main)
+    static let ftOnSecondary = Color("ftOnSecondary", bundle: .main)
+    static let ftSecondaryContainer = Color("ftSecondaryContainer", bundle: .main)
+    static let ftOnSecondaryContainer = Color("ftOnSecondaryContainer", bundle: .main)
+    static let ftSecondaryFixed = Color("ftSecondaryFixed", bundle: .main)
+    static let ftSecondaryFixedDim = Color("ftSecondaryFixedDim", bundle: .main)
+    static let ftOnSecondaryFixed = Color("ftOnSecondaryFixed", bundle: .main)
+    static let ftOnSecondaryFixedVariant = Color("ftOnSecondaryFixedVariant", bundle: .main)
 
     // Tertiary
-    static let ftTertiary = Color(hex: 0xA63360)
-    static let ftOnTertiary = Color.white
-    static let ftTertiaryContainer = Color(hex: 0xF26F9D)
-    static let ftOnTertiaryContainer = Color(hex: 0x690034)
-    static let ftTertiaryFixed = Color(hex: 0xFFD9E2)
-    static let ftTertiaryFixedDim = Color(hex: 0xFFB1C7)
-    static let ftOnTertiaryFixed = Color(hex: 0x3E001C)
-    static let ftOnTertiaryFixedVariant = Color(hex: 0x861948)
+    static let ftTertiary = Color("ftTertiary", bundle: .main)
+    static let ftOnTertiary = Color("ftOnTertiary", bundle: .main)
+    static let ftTertiaryContainer = Color("ftTertiaryContainer", bundle: .main)
+    static let ftOnTertiaryContainer = Color("ftOnTertiaryContainer", bundle: .main)
+    static let ftTertiaryFixed = Color("ftTertiaryFixed", bundle: .main)
+    static let ftTertiaryFixedDim = Color("ftTertiaryFixedDim", bundle: .main)
+    static let ftOnTertiaryFixed = Color("ftOnTertiaryFixed", bundle: .main)
+    static let ftOnTertiaryFixedVariant = Color("ftOnTertiaryFixedVariant", bundle: .main)
 
     // Error
-    static let ftError = Color(hex: 0xBA1A1A)
-    static let ftOnError = Color.white
-    static let ftErrorContainer = Color(hex: 0xFFDAD6)
-    static let ftOnErrorContainer = Color(hex: 0x93000A)
+    static let ftError = Color("ftError", bundle: .main)
+    static let ftOnError = Color("ftOnError", bundle: .main)
+    static let ftErrorContainer = Color("ftErrorContainer", bundle: .main)
+    static let ftOnErrorContainer = Color("ftOnErrorContainer", bundle: .main)
 
     // Surface / Background
-    static let ftSurface = Color(hex: 0xF9F9F9)
-    static let ftSurfaceBright = Color(hex: 0xF9F9F9)
-    static let ftSurfaceDim = Color(hex: 0xDADADA)
-    static let ftSurfaceContainerLowest = Color.white
-    static let ftSurfaceContainerLow = Color(hex: 0xF3F3F3)
-    static let ftSurfaceContainer = Color(hex: 0xEEEEEE)
-    static let ftSurfaceContainerHigh = Color(hex: 0xE8E8E8)
-    static let ftSurfaceContainerHighest = Color(hex: 0xE2E2E2)
-    static let ftSurfaceVariant = Color(hex: 0xE2E2E2)
-    static let ftSurfaceTint = Color(hex: 0x006E1C)
-    static let ftBackground = Color(hex: 0xF9F9F9)
+    static let ftSurface = Color("ftSurface", bundle: .main)
+    static let ftSurfaceBright = Color("ftSurfaceBright", bundle: .main)
+    static let ftSurfaceDim = Color("ftSurfaceDim", bundle: .main)
+    static let ftSurfaceContainerLowest = Color("ftSurfaceContainerLowest", bundle: .main)
+    static let ftSurfaceContainerLow = Color("ftSurfaceContainerLow", bundle: .main)
+    static let ftSurfaceContainer = Color("ftSurfaceContainer", bundle: .main)
+    static let ftSurfaceContainerHigh = Color("ftSurfaceContainerHigh", bundle: .main)
+    static let ftSurfaceContainerHighest = Color("ftSurfaceContainerHighest", bundle: .main)
+    static let ftSurfaceVariant = Color("ftSurfaceVariant", bundle: .main)
+    static let ftSurfaceTint = Color("ftSurfaceTint", bundle: .main)
+    static let ftBackground = Color("ftBackground", bundle: .main)
 
     // On Surface
-    static let ftOnSurface = Color(hex: 0x1A1C1C)
-    static let ftOnSurfaceVariant = Color(hex: 0x3F4A3C)
-    static let ftOnBackground = Color(hex: 0x1A1C1C)
+    static let ftOnSurface = Color("ftOnSurface", bundle: .main)
+    static let ftOnSurfaceVariant = Color("ftOnSurfaceVariant", bundle: .main)
+    static let ftOnBackground = Color("ftOnBackground", bundle: .main)
 
     // Outline
-    static let ftOutline = Color(hex: 0x6F7A6B)
-    static let ftOutlineVariant = Color(hex: 0xBECAB9)
+    static let ftOutline = Color("ftOutline", bundle: .main)
+    static let ftOutlineVariant = Color("ftOutlineVariant", bundle: .main)
 
     // Inverse
-    static let ftInverseSurface = Color(hex: 0x2F3131)
-    static let ftInverseOnSurface = Color(hex: 0xF1F1F1)
+    static let ftInverseSurface = Color("ftInverseSurface", bundle: .main)
+    static let ftInverseOnSurface = Color("ftInverseOnSurface", bundle: .main)
+
+    // Navigation
+    static let ftNavInactive = Color("ftNavInactive", bundle: .main)
 }
 
 // MARK: - Hex Color Initializer
+// Retained for one-off decorative values (e.g. shadow tints) that aren't design tokens.
 
 extension Color {
+    /// Creates a color from a 24-bit `0xRRGGBB` hex value and optional opacity.
     init(hex: UInt, alpha: Double = 1.0) {
         self.init(
             .sRGB,
@@ -86,6 +93,8 @@ extension Color {
 
 // MARK: - Typography
 
+/// Typography scale for the design system: Manrope for headlines, Inter for body/labels,
+/// exposed both as family helpers and named semantic sizes.
 struct FTFonts {
     // Headline family: Manrope
     static func headlineExtraBold(_ size: CGFloat) -> Font {
@@ -100,7 +109,7 @@ struct FTFonts {
 
     // Body family: Inter
     static func bodyRegular(_ size: CGFloat) -> Font {
-        .custom("Inter", size: size)
+        .custom("Inter-Regular", size: size)
     }
     static func bodyMedium(_ size: CGFloat) -> Font {
         .custom("Inter-Medium", size: size)
@@ -137,6 +146,7 @@ struct FTFonts {
 
 // MARK: - Corner Radii (from CSS borderRadius config)
 
+/// Named corner-radius constants used across the design system.
 struct FTRadius {
     static let xs: CGFloat = 2        // DEFAULT: 0.125rem
     static let sm: CGFloat = 4        // lg: 0.25rem
@@ -152,6 +162,7 @@ struct FTRadius {
 
 // MARK: - Spacing
 
+/// Named spacing constants for consistent padding and stack spacing.
 struct FTSpacing {
     static let xs: CGFloat = 4
     static let sm: CGFloat = 8
@@ -164,13 +175,15 @@ struct FTSpacing {
 
 // MARK: - Shadows (Ambient, low-opacity per DESIGN.md)
 
+/// Named ambient shadow presets for cards, elevated surfaces, the nav bar, and buttons.
 struct FTShadow {
     static let card = Shadow(color: .black.opacity(0.04), radius: 15, x: 0, y: 5)
     static let elevated = Shadow(color: .black.opacity(0.06), radius: 30, x: 0, y: 10)
     static let nav = Shadow(color: .black.opacity(0.04), radius: 20, x: 0, y: -5)
-    static let button = Shadow(color: Color(hex: 0x006E1C, alpha: 0.2), radius: 16, x: 0, y: 8)
+    static let button = Shadow(color: Color.ftPrimary.opacity(0.2), radius: 16, x: 0, y: 8)
 }
 
+/// Plain shadow parameters, since SwiftUI has no first-class shadow value type.
 struct Shadow {
     let color: Color
     let radius: CGFloat
@@ -180,6 +193,7 @@ struct Shadow {
 
 // MARK: - Gradients
 
+/// Reusable gradients for primary buttons and glassmorphism overlays.
 struct FTGradients {
     static let primaryButton = LinearGradient(
         colors: [.ftPrimary, .ftPrimaryContainer],
@@ -195,6 +209,7 @@ struct FTGradients {
 
 // MARK: - Freshness Status
 
+/// Freshness band of an item, with the colors and label used to present it.
 enum FreshnessStatus: String, CaseIterable {
     case safe       // 5+ days
     case warning    // 2-4 days
@@ -248,6 +263,7 @@ enum FreshnessStatus: String, CaseIterable {
 
 // MARK: - Reusable View Modifiers
 
+/// Applies the standard card surface, corner radius, and ambient shadow.
 struct FTCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -262,6 +278,7 @@ struct FTCardModifier: ViewModifier {
     }
 }
 
+/// Primary call-to-action button style: gradient fill, shadow, and press feedback.
 struct FTPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -283,6 +300,7 @@ struct FTPrimaryButtonStyle: ButtonStyle {
     }
 }
 
+/// Applies the glassmorphism (ultra-thin material) treatment to the bottom nav bar.
 struct FTGlassNavModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -305,10 +323,12 @@ struct FTGlassNavModifier: ViewModifier {
 // MARK: - View Extensions
 
 extension View {
+    /// Wraps the view in the standard card surface (``FTCardModifier``).
     func ftCard() -> some View {
         modifier(FTCardModifier())
     }
 
+    /// Applies the glassmorphism nav-bar treatment (``FTGlassNavModifier``).
     func ftGlassNav() -> some View {
         modifier(FTGlassNavModifier())
     }

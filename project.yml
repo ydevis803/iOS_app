@@ -18,15 +18,29 @@ targets:
       - path: App
     resources:
       - path: Resources
-    settings:
-      base:
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_NSCameraUsageDescription: "FreshTrack needs camera access to scan barcodes and expiration dates on food items."
-        INFOPLIST_KEY_NSCalendarsUsageDescription: "FreshTrack syncs expiration dates to your calendar so you never miss them."
-        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "FreshTrack syncs expiration dates to your calendar so you never miss them."
+    info:
+      path: Support/Info.plist
+      properties:
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSCameraUsageDescription: "FreshTrack needs camera access to scan barcodes and expiration dates on food items."
+        NSCalendarsUsageDescription: "FreshTrack syncs expiration dates to your calendar so you never miss them."
+        NSCalendarsFullAccessUsageDescription: "FreshTrack syncs expiration dates to your calendar so you never miss them."
+        # Custom fonts — files must be added to Resources/Fonts/ (see README there).
+        UIAppFonts:
+          - Manrope-ExtraBold.ttf
+          - Manrope-Bold.ttf
+          - Manrope-SemiBold.ttf
+          - Inter-Regular.ttf
+          - Inter-Medium.ttf
+          - Inter-SemiBold.ttf
+          - Inter-Bold.ttf
     entitlements:
-      com.apple.security.app-sandbox: true
+      path: Support/FreshTrack.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
     scheme:
       testTargets: []

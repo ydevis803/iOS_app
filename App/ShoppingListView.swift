@@ -1,11 +1,50 @@
 import SwiftUI
+import Combine
+
+// MARK: - Shopping List View Model
+
+/// Exposes the shopping list and its mutations from the shared ``FoodStore``.
+@MainActor
+final class ShoppingListViewModel: ObservableObject {
+    private let store: FoodStore
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: FoodStore) {
+        self.store = store
+        store.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+    }
+
+    var items: [ShoppingItem] { store.shoppingList }
+
+    func toggle(_ item: ShoppingItem) { store.toggleShoppingItem(item) }
+
+    func remove(_ item: ShoppingItem) { store.removeShoppingItem(item) }
+
+    func isLast(_ item: ShoppingItem) -> Bool { item.id == store.shoppingList.last?.id }
+
+    /// Adds a trimmed item name, ignoring blank input. Returns `true` when something was added.
+    @discardableResult
+    func add(named rawName: String) -> Bool {
+        let trimmed = rawName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        store.addToShoppingList(name: trimmed)
+        return true
+    }
+}
 
 // MARK: - Shopping List View
 
+/// Checklist of shopping items with inline add, toggle, and delete.
 struct ShoppingListView: View {
-    @EnvironmentObject var store: FoodStore
+    @StateObject private var viewModel: ShoppingListViewModel
     @State private var newItemName = ""
     @State private var isAddingItem = false
+
+    init(store: FoodStore) {
+        _viewModel = StateObject(wrappedValue: ShoppingListViewModel(store: store))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: FTSpacing.lg) {
@@ -21,10 +60,10 @@ struct ShoppingListView: View {
 
             // List
             VStack(spacing: 0) {
-                ForEach(store.shoppingList) { item in
+                ForEach(viewModel.items) { item in
                     shoppingRow(item: item)
 
-                    if item.id != store.shoppingList.last?.id {
+                    if !viewModel.isLast(item) {
                         Divider()
                             .foregroundStyle(Color.ftSurfaceVariant.opacity(0.3))
                             .padding(.horizontal, FTSpacing.lg)
@@ -86,7 +125,7 @@ struct ShoppingListView: View {
             // Checkbox
             Button {
                 withAnimation(.spring(response: 0.2)) {
-                    store.toggleShoppingItem(item)
+                    viewModel.toggle(item)
                 }
             } label: {
                 if item.isChecked {
@@ -127,7 +166,7 @@ struct ShoppingListView: View {
             Spacer()
 
             Button {
-                withAnimation { store.removeShoppingItem(item) }
+                withAnimation { viewModel.remove(item) }
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 14))
@@ -141,8 +180,7 @@ struct ShoppingListView: View {
     }
 
     private func addNewItem() {
-        guard !newItemName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        store.addToShoppingList(name: newItemName)
+        guard viewModel.add(named: newItemName) else { return }
         newItemName = ""
         withAnimation(.spring(response: 0.3)) {
             isAddingItem = false
@@ -151,7 +189,6 @@ struct ShoppingListView: View {
 }
 
 #Preview {
-    ShoppingListView()
-        .environmentObject(FoodStore())
+    ShoppingListView(store: FoodStore())
         .padding()
 }

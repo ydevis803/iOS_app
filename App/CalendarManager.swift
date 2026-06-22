@@ -3,6 +3,8 @@ import EventKit
 
 // MARK: - Calendar Manager (EventKit Integration)
 
+/// Wraps EventKit to create and remove all-day expiry events (with a 2-day-before alarm)
+/// in the user's default calendar.
 @MainActor
 final class CalendarManager: ObservableObject {
     private let eventStore = EKEventStore()
@@ -12,6 +14,8 @@ final class CalendarManager: ObservableObject {
         authorizationStatus = EKEventStore.authorizationStatus(for: .event)
     }
 
+    /// Requests calendar write access, using the iOS 17+ full-access API where available.
+    /// - Returns: `true` if access was granted.
     func requestAccess() async -> Bool {
         if #available(iOS 17.0, *) {
             do {
@@ -32,6 +36,8 @@ final class CalendarManager: ObservableObject {
         }
     }
 
+    /// Creates an all-day expiry event with a 2-day-before alarm for the item.
+    /// - Returns: The new event's identifier, or `nil` if access was denied or saving failed.
     func addExpirationEvent(for item: FoodItem) async -> String? {
         guard await requestAccess() else { return nil }
 
@@ -55,6 +61,7 @@ final class CalendarManager: ObservableObject {
         }
     }
 
+    /// Removes the calendar event with the given identifier, if it still exists.
     func removeEvent(identifier: String) {
         guard let event = eventStore.event(withIdentifier: identifier) else { return }
         try? eventStore.remove(event, span: .thisEvent)

@@ -2,6 +2,8 @@ import SwiftUI
 
 // MARK: - Content View (Main Tab Navigation)
 
+/// Root view: owns the shared ``FoodStore``, hosts the Home/Scan/Kitchen tabs, and
+/// presents the scanner. Acts as the composition root that injects the store downward.
 struct ContentView: View {
     @StateObject private var store = FoodStore()
     @State private var selectedTab: Tab = .home
@@ -42,7 +44,7 @@ struct ContentView: View {
                 Group {
                     switch selectedTab {
                     case .home:
-                        HomeView()
+                        HomeView(store: store)
                     case .scan:
                         Color.clear.onAppear {
                             showScanner = true
@@ -58,12 +60,10 @@ struct ContentView: View {
             // Bottom Navigation Bar
             bottomNavBar
         }
-        .environmentObject(store)
         .fullScreenCover(isPresented: $showScanner) {
             ScannerView { result in
                 handleScanResult(result)
             }
-            .environmentObject(store)
         }
         .task {
             await store.notificationManager.requestAuthorization()
@@ -164,9 +164,9 @@ struct ContentView: View {
 
             switch kitchenSection {
             case .pantry:
-                PantryView()
+                PantryView(store: store)
             case .recipes:
-                RecipesView()
+                RecipesView(store: store)
             }
         }
     }
@@ -195,7 +195,7 @@ struct ContentView: View {
                     .foregroundStyle(
                         selectedTab == tab
                             ? Color.ftOnPrimaryFixed
-                            : Color(hex: 0x9E9E9E)
+                            : Color.ftNavInactive
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -217,14 +217,7 @@ struct ContentView: View {
     // MARK: - Handle Scan
 
     private func handleScanResult(_ result: ScanResult) {
-        let item = FoodItem(
-            name: result.productName ?? "Scanned Item",
-            expirationDate: result.expirationDate ?? Calendar.current.date(byAdding: .day, value: 7, to: Date())!,
-            barcode: result.barcode
-        )
-        Task {
-            await store.addItem(item)
-        }
+        Task { await store.addScanned(result) }
     }
 }
 

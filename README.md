@@ -1,6 +1,6 @@
 # FreshTrack — Smart Kitchen Manager
 
-A production-ready SwiftUI iOS app that tracks food freshness, scans barcodes and expiration dates, syncs to Apple Calendar, and suggests batch cooking recipes using expiring ingredients.
+A SwiftUI iOS app that tracks food freshness, scans product barcodes, syncs expiry dates to Apple Calendar, sends local expiry reminders, and suggests batch cooking recipes using expiring ingredients.
 
 ## Architecture
 
@@ -9,7 +9,7 @@ A production-ready SwiftUI iOS app that tracks food freshness, scans barcodes an
 | `Theme.swift` | Full design system — colors, typography, radii, shadows, gradients, view modifiers (extracted from HTML/CSS) |
 | `FoodItem.swift` | Data models: `FoodItem`, `Recipe`, `ShoppingItem`, enums, sample data |
 | `FoodStore.swift` | Central `@ObservableObject` state manager — CRUD, batch logic, expiry scoring |
-| `ScannerView.swift` | Camera scanner — AVFoundation barcode + VisionKit OCR for expiry text |
+| `ScannerView.swift` | Camera scanner — AVFoundation barcode capture; expiry entered/confirmed by the user |
 | `ContentView.swift` | Main tab navigation (Home / Scan / Kitchen) with glassmorphism nav bar |
 | `HomeView.swift` | Dashboard with freshness score, expiring-soon list, quick actions |
 | `PantryView.swift` | Inventory list / calendar toggle with add-item sheet |
@@ -23,9 +23,10 @@ A production-ready SwiftUI iOS app that tracks food freshness, scans barcodes an
 
 - **SwiftUI** — All UI
 - **AVFoundation** — Barcode scanning (EAN-8/13, UPC-E, Code 128, QR, etc.)
-- **VisionKit** (`DataScannerViewController`) — Live OCR for expiration date text
 - **EventKit** — Calendar sync with 2-day-before alarm
 - **UserNotifications** — Local push alerts 2 days before expiry
+
+> Live OCR of printed expiry dates (VisionKit) is a planned enhancement and is not yet wired into the scanner.
 
 ## Design System: "The Culinary Atelier"
 
