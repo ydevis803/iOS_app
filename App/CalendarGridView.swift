@@ -1,19 +1,103 @@
 import SwiftUI
+import Combine
+
+// MARK: - Calendar View Model
+
+/// Owns the month/selection state and all calendar date arithmetic for the grid.
+@MainActor
+final class CalendarViewModel: ObservableObject {
+    @Published var displayedMonth = Date()
+    @Published var selectedDate: Date?
+
+    let dayLabels = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"]
+
+    private let store: FoodStore
+    private let calendar = Calendar.current
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: FoodStore) {
+        self.store = store
+        store.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+    }
+
+    // MARK: Data
+
+    func items(expiringOn date: Date) -> [FoodItem] { store.items(expiringOn: date) }
+
+    func expiringDots(for items: [FoodItem]) -> [Color] { items.map { $0.freshnessStatus.dotColor } }
+
+    // MARK: Per-cell queries
+
+    func isToday(_ date: Date) -> Bool { calendar.isDateInToday(date) }
+
+    func isSelected(_ date: Date) -> Bool {
+        selectedDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
+    }
+
+    func isInDisplayedMonth(_ date: Date) -> Bool {
+        calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
+    }
+
+    func dayNumber(for date: Date) -> Int { calendar.component(.day, from: date) }
+
+    // MARK: Navigation
+
+    var monthYearString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: displayedMonth)
+    }
+
+    func previousMonth() {
+        displayedMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
+    }
+
+    func nextMonth() {
+        displayedMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
+    }
+
+    /// Dates for the displayed month, padded with `nil`s so the grid starts on the
+    /// correct weekday and fills complete rows of seven.
+    func daysInMonth() -> [Date?] {
+        guard let range = calendar.range(of: .day, in: .month, for: displayedMonth),
+              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)) else {
+            return []
+        }
+
+        let weekdayOfFirst = calendar.component(.weekday, from: firstDay) - 1
+        var days: [Date?] = Array(repeating: nil, count: weekdayOfFirst)
+
+        for day in range {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstDay) {
+                days.append(date)
+            }
+        }
+
+        while days.count % 7 != 0 {
+            days.append(nil)
+        }
+
+        return days
+    }
+}
 
 // MARK: - Calendar Grid View (Monthly Expiration Overview)
 
+/// Monthly calendar that marks days with colored expiry dots and drills into the
+/// items expiring on a tapped date.
 struct CalendarGridView: View {
-    @EnvironmentObject var store: FoodStore
-    @State private var displayedMonth = Date()
-    @State private var selectedDate: Date?
+    @StateObject private var viewModel: CalendarViewModel
 
-    private let calendar = Calendar.current
-    private let dayLabels = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"]
+    init(store: FoodStore) {
+        _viewModel = StateObject(wrappedValue: CalendarViewModel(store: store))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             calendarCard
-            if let selected = selectedDate {
+            if let selected = viewModel.selectedDate {
                 selectedDateItems(date: selected)
             }
         }
@@ -25,16 +109,20 @@ struct CalendarGridView: View {
         VStack(spacing: FTSpacing.lg) {
             // Month header
             HStack {
-                Text(monthYearString)
+                Text(viewModel.monthYearString)
                     .font(FTFonts.headlineSmall)
                     .foregroundStyle(Color.ftOnSurface)
                 Spacer()
                 HStack(spacing: FTSpacing.sm) {
-                    Button { previousMonth() } label: {
+                    Button {
+                        withAnimation(.spring(response: 0.3)) { viewModel.previousMonth() }
+                    } label: {
                         Image(systemName: "chevron.left")
                             .foregroundStyle(Color.ftOutline)
                     }
-                    Button { nextMonth() } label: {
+                    Button {
+                        withAnimation(.spring(response: 0.3)) { viewModel.nextMonth() }
+                    } label: {
                         Image(systemName: "chevron.right")
                             .foregroundStyle(Color.ftOutline)
                     }
@@ -43,7 +131,7 @@ struct CalendarGridView: View {
 
             // Day-of-week labels
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 0) {
-                ForEach(dayLabels, id: \.self) { day in
+                ForEach(viewModel.dayLabels, id: \.self) { day in
                     Text(day)
                         .font(.system(size: 10, weight: .bold))
                         .tracking(1.5)
@@ -54,12 +142,12 @@ struct CalendarGridView: View {
 
             // Date grid
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: FTSpacing.sm) {
-                ForEach(daysInMonth(), id: \.self) { date in
+                ForEach(viewModel.daysInMonth(), id: \.self) { date in
                     if let date = date {
                         dayCell(date: date)
                             .onTapGesture {
                                 withAnimation(.spring(response: 0.3)) {
-                                    selectedDate = date
+                                    viewModel.selectedDate = date
                                 }
                             }
                     } else {
@@ -91,13 +179,14 @@ struct CalendarGridView: View {
     // MARK: - Day Cell
 
     private func dayCell(date: Date) -> some View {
-        let isToday = calendar.isDateInToday(date)
-        let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
-        let expiringItems = store.items(expiringOn: date)
-        let isCurrentMonth = calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
+        let isToday = viewModel.isToday(date)
+        let isSelected = viewModel.isSelected(date)
+        let expiringItems = viewModel.items(expiringOn: date)
+        let isCurrentMonth = viewModel.isInDisplayedMonth(date)
+        let dots = Array(viewModel.expiringDots(for: expiringItems).prefix(3))
 
         return VStack(spacing: 2) {
-            Text("\(calendar.component(.day, from: date))")
+            Text("\(viewModel.dayNumber(for: date))")
                 .font(FTFonts.bodyMediumFont)
                 .fontWeight(isToday ? .bold : .regular)
                 .foregroundStyle(
@@ -106,11 +195,12 @@ struct CalendarGridView: View {
                         : Color.ftSurfaceDim
                 )
 
-            if !expiringItems.isEmpty {
+            if !dots.isEmpty {
                 HStack(spacing: 2) {
-                    ForEach(Array(expiringDots(for: expiringItems).prefix(3)), id: \.self) { color in
+                    // Index-based IDs: duplicate status colors are valid and must not collide.
+                    ForEach(dots.indices, id: \.self) { index in
                         Circle()
-                            .fill(color)
+                            .fill(dots[index])
                             .frame(width: 6, height: 6)
                     }
                 }
@@ -128,10 +218,6 @@ struct CalendarGridView: View {
                 }
             }
         )
-    }
-
-    private func expiringDots(for items: [FoodItem]) -> [Color] {
-        items.map { $0.freshnessStatus.dotColor }
     }
 
     // MARK: - Legend
@@ -161,7 +247,7 @@ struct CalendarGridView: View {
     // MARK: - Selected Date Items
 
     private func selectedDateItems(date: Date) -> some View {
-        let items = store.items(expiringOn: date)
+        let items = viewModel.items(expiringOn: date)
         let formatted = date.formatted(.dateTime.month(.wide).day())
 
         return VStack(alignment: .leading, spacing: FTSpacing.lg) {
@@ -191,53 +277,12 @@ struct CalendarGridView: View {
             }
         }
     }
-
-    // MARK: - Date Helpers
-
-    private var monthYearString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: displayedMonth)
-    }
-
-    private func previousMonth() {
-        withAnimation(.spring(response: 0.3)) {
-            displayedMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
-        }
-    }
-
-    private func nextMonth() {
-        withAnimation(.spring(response: 0.3)) {
-            displayedMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
-        }
-    }
-
-    private func daysInMonth() -> [Date?] {
-        guard let range = calendar.range(of: .day, in: .month, for: displayedMonth),
-              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)) else {
-            return []
-        }
-
-        let weekdayOfFirst = calendar.component(.weekday, from: firstDay) - 1
-        var days: [Date?] = Array(repeating: nil, count: weekdayOfFirst)
-
-        for day in range {
-            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstDay) {
-                days.append(date)
-            }
-        }
-
-        // Pad end to complete the grid
-        while days.count % 7 != 0 {
-            days.append(nil)
-        }
-
-        return days
-    }
 }
 
 // MARK: - Reusable Food Item Card
 
+/// Reusable row card showing an item's icon, name, placement, and a freshness chip
+/// with a colored status strip down the leading edge.
 struct FoodItemCard: View {
     let item: FoodItem
 

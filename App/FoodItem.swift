@@ -3,6 +3,8 @@ import SwiftUI
 
 // MARK: - Food Item Data Model
 
+/// A single tracked food item: its identity, storage details, and expiry date,
+/// plus the identifiers of any calendar event/notification scheduled for it.
 struct FoodItem: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
@@ -44,10 +46,12 @@ struct FoodItem: Identifiable, Codable, Hashable {
 
     // MARK: - Computed Properties
 
+    /// Whole days from today (start of day) until the expiration date; negative if past.
     var daysUntilExpiry: Int {
         Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: Calendar.current.startOfDay(for: expirationDate)).day ?? 0
     }
 
+    /// Freshness band derived from ``daysUntilExpiry``.
     var freshnessStatus: FreshnessStatus {
         switch daysUntilExpiry {
         case ..<0: return .expired
@@ -57,6 +61,7 @@ struct FoodItem: Identifiable, Codable, Hashable {
         }
     }
 
+    /// Human-readable expiry summary (e.g. "Today", "Tomorrow", "3 Days").
     var expiryLabel: String {
         let days = daysUntilExpiry
         switch days {
@@ -67,6 +72,7 @@ struct FoodItem: Identifiable, Codable, Hashable {
         }
     }
 
+    /// Display name of the item's storage placement.
     var placementLabel: String {
         placement.label
     }
@@ -74,6 +80,7 @@ struct FoodItem: Identifiable, Codable, Hashable {
 
 // MARK: - Storage Placement
 
+/// Where an item is stored, each with a matching SF Symbol icon.
 enum StoragePlacement: String, Codable, CaseIterable, Hashable {
     case fridge = "Fridge"
     case freezer = "Freezer"
@@ -96,6 +103,7 @@ enum StoragePlacement: String, Codable, CaseIterable, Hashable {
 
 // MARK: - Food Category
 
+/// Food classification used for grouping and choosing an icon.
 enum FoodCategory: String, Codable, CaseIterable, Hashable {
     case dairy = "Dairy"
     case produce = "Produce"
@@ -126,6 +134,8 @@ enum FoodCategory: String, Codable, CaseIterable, Hashable {
 
 // MARK: - Recipe Model (for Batch Cooking)
 
+/// A batch-cooking recipe suggestion, including the ingredients it consumes
+/// and how urgently it should be prepared.
 struct Recipe: Identifiable, Hashable {
     let id: UUID
     let name: String
@@ -151,6 +161,7 @@ struct Recipe: Identifiable, Hashable {
     }
 }
 
+/// How time-sensitive a recipe suggestion is, with its badge color and icon.
 enum RecipeUrgency: String, Hashable {
     case urgentPrep = "URGENT PREP"
     case smartIdea = "SMART IDEA"
@@ -172,6 +183,7 @@ enum RecipeUrgency: String, Hashable {
 
 // MARK: - Shopping List Item
 
+/// A single shopping-list entry with a checked state and optional note.
 struct ShoppingItem: Identifiable, Codable, Hashable {
     let id: UUID
     var name: String
@@ -188,6 +200,7 @@ struct ShoppingItem: Identifiable, Codable, Hashable {
 
 // MARK: - Scan Result
 
+/// The data produced by a scan: any of the fields may be `nil` if not detected.
 struct ScanResult {
     var productName: String?
     var expirationDate: Date?

@@ -1,9 +1,45 @@
 import SwiftUI
+import Combine
+
+// MARK: - Recipes View Model
+
+/// Scores recipes against the expiring inventory and supplies per-ingredient display data.
+@MainActor
+final class RecipesViewModel: ObservableObject {
+    private let store: FoodStore
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: FoodStore) {
+        self.store = store
+        store.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+    }
+
+    var scoredRecipes: [(recipe: Recipe, matchingIngredients: [String], matchCount: Int)] {
+        store.scoredRecipes
+    }
+
+    /// Display label and freshness status for an ingredient, looked up by name in the pantry.
+    func ingredientInfo(name: String) -> (label: String, status: FreshnessStatus?) {
+        let item = store.items.first { $0.name == name }
+        let label = item.map { "\(name) (\($0.daysUntilExpiry) days)" } ?? name
+        return (label, item?.freshnessStatus)
+    }
+}
 
 // MARK: - Recipes View (Smart Kitchen Prep / Batch Cooking)
 
+/// Batch-cooking screen: recipes scored by how many expiring ingredients they use,
+/// with the shopping list embedded below.
 struct RecipesView: View {
-    @EnvironmentObject var store: FoodStore
+    @StateObject private var viewModel: RecipesViewModel
+    private let store: FoodStore
+
+    init(store: FoodStore) {
+        self.store = store
+        _viewModel = StateObject(wrappedValue: RecipesViewModel(store: store))
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -41,7 +77,7 @@ struct RecipesView: View {
                     .foregroundStyle(Color.ftOnSurfaceVariant)
 
                 // Recipe cards
-                let scored = store.scoredRecipes
+                let scored = viewModel.scoredRecipes
                 if scored.isEmpty {
                     emptyRecipesState
                 } else {
@@ -140,32 +176,35 @@ struct RecipesView: View {
     }
 
     private func ingredientChip(name: String, isMatching: Bool) -> some View {
-        let item = store.items.first { $0.name == name }
-        let daysLabel = item.map { "\(name) (\($0.daysUntilExpiry) days)" } ?? name
+        let info = viewModel.ingredientInfo(name: name)
 
         return HStack(spacing: 4) {
             Image(systemName: "clock")
                 .font(.system(size: 10))
-            Text(daysLabel)
+            Text(info.label)
                 .font(.system(size: 12, weight: .medium))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(
-            isMatching
-                ? (item?.freshnessStatus == .critical || item?.freshnessStatus == .expired
-                    ? Color.ftErrorContainer
-                    : (item?.freshnessStatus == .warning ? Color.ftTertiaryContainer : Color.ftSecondaryContainer))
-                : Color.ftSurfaceContainerLow
-        )
-        .foregroundStyle(
-            isMatching
-                ? (item?.freshnessStatus == .critical || item?.freshnessStatus == .expired
-                    ? Color.ftOnErrorContainer
-                    : (item?.freshnessStatus == .warning ? Color.ftOnTertiaryContainer : Color.ftOnSecondaryContainer))
-                : Color.ftOnSurfaceVariant
-        )
+        .background(isMatching ? chipBackground(for: info.status) : Color.ftSurfaceContainerLow)
+        .foregroundStyle(isMatching ? chipForeground(for: info.status) : Color.ftOnSurfaceVariant)
         .clipShape(Capsule())
+    }
+
+    private func chipBackground(for status: FreshnessStatus?) -> Color {
+        switch status {
+        case .critical, .expired: return .ftErrorContainer
+        case .warning: return .ftTertiaryContainer
+        default: return .ftSecondaryContainer
+        }
+    }
+
+    private func chipForeground(for status: FreshnessStatus?) -> Color {
+        switch status {
+        case .critical, .expired: return .ftOnErrorContainer
+        case .warning: return .ftOnTertiaryContainer
+        default: return .ftOnSecondaryContainer
+        }
     }
 
     private var emptyRecipesState: some View {
@@ -188,12 +227,14 @@ struct RecipesView: View {
     // MARK: - Shopping List Section (Inline)
 
     private var shoppingListSection: some View {
-        ShoppingListView()
+        ShoppingListView(store: store)
     }
 }
 
 // MARK: - Flow Layout (for ingredient chips wrapping)
 
+/// A simple `Layout` that arranges subviews left-to-right, wrapping to a new line
+/// when the proposed width is exceeded. Used for the wrapping ingredient chips.
 struct FlowLayout: Layout {
     let spacing: CGFloat
 
@@ -236,6 +277,5 @@ struct FlowLayout: Layout {
 }
 
 #Preview {
-    RecipesView()
-        .environmentObject(FoodStore())
+    RecipesView(store: FoodStore())
 }

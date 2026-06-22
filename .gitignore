@@ -1,6 +1,11 @@
 # Xcode
 DerivedData/
 build/
+
+# XcodeGen — generated from project.yml (run `xcodegen generate`)
+*.xcodeproj/
+Support/Info.plist
+Support/FreshTrack.entitlements
 *.pbxuser
 !default.pbxuser
 *.mode1v3
@@ -30,3 +35,5 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+.DS_Store

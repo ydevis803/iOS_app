@@ -3,10 +3,13 @@ import UserNotifications
 
 // MARK: - Notification Manager (UNUserNotificationCenter)
 
+/// Wraps `UNUserNotificationCenter` to schedule and cancel local expiry reminders
+/// that fire two days before an item's expiration date.
 @MainActor
 final class NotificationManager: ObservableObject {
     @Published var isAuthorized = false
 
+    /// Requests alert/badge/sound authorization and records the result in ``isAuthorized``.
     func requestAuthorization() async {
         do {
             let granted = try await UNUserNotificationCenter.current()
@@ -51,10 +54,12 @@ final class NotificationManager: ObservableObject {
         return id
     }
 
+    /// Cancels the pending notification with the given identifier.
     func cancelNotification(identifier: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
 
+    /// Cancels every pending FreshTrack notification.
     func cancelAllNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }

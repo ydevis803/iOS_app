@@ -1,12 +1,43 @@
 import SwiftUI
+import Combine
+
+// MARK: - Pantry View Model
+
+/// Supplies the sorted inventory and its mutations to the pantry list.
+@MainActor
+final class PantryViewModel: ObservableObject {
+    private let store: FoodStore
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: FoodStore) {
+        self.store = store
+        store.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+    }
+
+    var items: [FoodItem] { store.sortedItems }
+
+    func remove(_ item: FoodItem) { store.removeItem(item) }
+
+    func addScanned(_ result: ScanResult) async { await store.addScanned(result) }
+}
 
 // MARK: - Pantry View (Inventory / Calendar Toggle)
 
+/// Inventory screen with a list/calendar toggle and entry points for scanning or
+/// manually adding items.
 struct PantryView: View {
-    @EnvironmentObject var store: FoodStore
+    @StateObject private var viewModel: PantryViewModel
+    private let store: FoodStore
     @State private var viewMode: ViewMode = .list
     @State private var showScanner = false
     @State private var showAddItem = false
+
+    init(store: FoodStore) {
+        self.store = store
+        _viewModel = StateObject(wrappedValue: PantryViewModel(store: store))
+    }
 
     enum ViewMode: String, CaseIterable {
         case list = "List View"
@@ -33,7 +64,7 @@ struct PantryView: View {
                     case .list:
                         listView
                     case .calendar:
-                        CalendarGridView()
+                        CalendarGridView(store: store)
                     }
 
                     // Add button
@@ -51,7 +82,7 @@ struct PantryView: View {
             }
         }
         .sheet(isPresented: $showAddItem) {
-            AddItemSheet()
+            AddItemSheet(store: store)
         }
     }
 
@@ -93,11 +124,13 @@ struct PantryView: View {
 
     private var listView: some View {
         LazyVStack(spacing: FTSpacing.lg) {
-            ForEach(store.sortedItems) { item in
+            ForEach(viewModel.items) { item in
                 FoodItemCard(item: item)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    // `.swipeActions` only works inside a `List`; this layout is a
+                    // `LazyVStack`, so a context menu provides the delete affordance.
+                    .contextMenu {
                         Button(role: .destructive) {
-                            withAnimation { store.removeItem(item) }
+                            withAnimation { viewModel.remove(item) }
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -129,44 +162,69 @@ struct PantryView: View {
     // MARK: - Handle Scan
 
     private func handleScanResult(_ result: ScanResult) {
+        Task { await viewModel.addScanned(result) }
+    }
+}
+
+// MARK: - Add Item View Model
+
+/// Owns the manual-entry form state and persistence for ``AddItemSheet``.
+@MainActor
+final class AddItemViewModel: ObservableObject {
+    @Published var name = ""
+    @Published var brand = ""
+    @Published var quantity = ""
+    @Published var expirationDate = Calendar.current.date(byAdding: .day, value: 7, to: Date())!
+    @Published var placement: StoragePlacement = .fridge
+    @Published var category: FoodCategory = .other
+
+    private let store: FoodStore
+
+    init(store: FoodStore) {
+        self.store = store
+    }
+
+    var canSave: Bool { !name.isEmpty }
+
+    /// Persists the entered item (which also schedules its alert + calendar event).
+    func save() async {
         let item = FoodItem(
-            name: result.productName ?? "Scanned Item",
-            expirationDate: result.expirationDate ?? Calendar.current.date(byAdding: .day, value: 7, to: Date())!,
-            barcode: result.barcode
+            name: name,
+            brand: brand,
+            quantity: quantity,
+            expirationDate: expirationDate,
+            placement: placement,
+            category: category
         )
-        Task {
-            await store.addItem(item)
-        }
+        await store.addItem(item)
     }
 }
 
 // MARK: - Add Item Sheet (Manual Entry)
 
+/// Modal form for manually entering a new pantry item.
 struct AddItemSheet: View {
-    @EnvironmentObject var store: FoodStore
+    @StateObject private var viewModel: AddItemViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name = ""
-    @State private var brand = ""
-    @State private var quantity = ""
-    @State private var expirationDate = Calendar.current.date(byAdding: .day, value: 7, to: Date())!
-    @State private var placement: StoragePlacement = .fridge
-    @State private var category: FoodCategory = .other
+    init(store: FoodStore) {
+        _viewModel = StateObject(wrappedValue: AddItemViewModel(store: store))
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: FTSpacing.xl) {
-                    formField(label: "ITEM NAME", text: $name, placeholder: "e.g. Baby Spinach")
-                    formField(label: "BRAND", text: $brand, placeholder: "e.g. Organic Valley")
-                    formField(label: "QUANTITY", text: $quantity, placeholder: "e.g. 6 oz")
+                    formField(label: "ITEM NAME", text: $viewModel.name, placeholder: "e.g. Baby Spinach")
+                    formField(label: "BRAND", text: $viewModel.brand, placeholder: "e.g. Organic Valley")
+                    formField(label: "QUANTITY", text: $viewModel.quantity, placeholder: "e.g. 6 oz")
 
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
                         Text("EXPIRATION DATE")
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(1.5)
                             .foregroundStyle(Color.ftOnSurfaceVariant)
-                        DatePicker("", selection: $expirationDate, displayedComponents: .date)
+                        DatePicker("", selection: $viewModel.expirationDate, displayedComponents: .date)
                             .datePickerStyle(.compact)
                             .labelsHidden()
                             .tint(Color.ftPrimary)
@@ -177,7 +235,7 @@ struct AddItemSheet: View {
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(1.5)
                             .foregroundStyle(Color.ftOnSurfaceVariant)
-                        Picker("Placement", selection: $placement) {
+                        Picker("Placement", selection: $viewModel.placement) {
                             ForEach(StoragePlacement.allCases, id: \.self) { p in
                                 Text(p.label).tag(p)
                             }
@@ -190,7 +248,7 @@ struct AddItemSheet: View {
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(1.5)
                             .foregroundStyle(Color.ftOnSurfaceVariant)
-                        Picker("Category", selection: $category) {
+                        Picker("Category", selection: $viewModel.category) {
                             ForEach(FoodCategory.allCases, id: \.self) { c in
                                 Text(c.rawValue).tag(c)
                             }
@@ -200,16 +258,8 @@ struct AddItemSheet: View {
                     }
 
                     Button {
-                        let item = FoodItem(
-                            name: name,
-                            brand: brand,
-                            quantity: quantity,
-                            expirationDate: expirationDate,
-                            placement: placement,
-                            category: category
-                        )
                         Task {
-                            await store.addItem(item)
+                            await viewModel.save()
                             dismiss()
                         }
                     } label: {
@@ -219,8 +269,8 @@ struct AddItemSheet: View {
                         }
                     }
                     .buttonStyle(FTPrimaryButtonStyle())
-                    .disabled(name.isEmpty)
-                    .opacity(name.isEmpty ? 0.5 : 1)
+                    .disabled(!viewModel.canSave)
+                    .opacity(viewModel.canSave ? 1 : 0.5)
                     .padding(.top, FTSpacing.lg)
                 }
                 .padding(FTSpacing.xl)
@@ -253,6 +303,5 @@ struct AddItemSheet: View {
 }
 
 #Preview {
-    PantryView()
-        .environmentObject(FoodStore())
+    PantryView(store: FoodStore())
 }

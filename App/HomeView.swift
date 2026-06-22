@@ -1,9 +1,48 @@
 import SwiftUI
+import Combine
+
+// MARK: - Home View Model
+
+/// Derives the dashboard's freshness statistics from the shared ``FoodStore``.
+@MainActor
+final class HomeViewModel: ObservableObject {
+    private let store: FoodStore
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: FoodStore) {
+        self.store = store
+        // Re-publish store changes so the view refreshes when inventory mutates.
+        store.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+    }
+
+    var expiringSoonItems: [FoodItem] { store.expiringSoonItems }
+    var hasExpiringSoon: Bool { !store.expiringSoonItems.isEmpty }
+
+    var safeCount: Int { store.items.filter { $0.freshnessStatus == .safe }.count }
+    var warningCount: Int { store.items.filter { $0.freshnessStatus == .warning }.count }
+    var criticalCount: Int {
+        store.items.filter { $0.freshnessStatus == .critical || $0.freshnessStatus == .expired }.count
+    }
+
+    /// Percentage of inventory that is still in the "safe" freshness band.
+    var freshnessScore: Int {
+        guard !store.items.isEmpty else { return 100 }
+        let fresh = store.items.filter { $0.freshnessStatus == .safe }.count
+        return Int((Double(fresh) / Double(store.items.count)) * 100)
+    }
+}
 
 // MARK: - Home View (Dashboard)
 
+/// Dashboard showing the overall freshness score, expiring-soon items, and quick actions.
 struct HomeView: View {
-    @EnvironmentObject var store: FoodStore
+    @StateObject private var viewModel: HomeViewModel
+
+    init(store: FoodStore) {
+        _viewModel = StateObject(wrappedValue: HomeViewModel(store: store))
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -12,7 +51,7 @@ struct HomeView: View {
                 freshnessSummary
 
                 // Expiring soon section
-                if !store.expiringSoonItems.isEmpty {
+                if viewModel.hasExpiringSoon {
                     expiringSoonSection
                 }
 
@@ -37,16 +76,16 @@ struct HomeView: View {
                         .tracking(1.5)
                         .foregroundStyle(Color.ftOnSurfaceVariant)
 
-                    Text("\(freshnessScore)%")
+                    Text("\(viewModel.freshnessScore)%")
                         .font(FTFonts.displayLarge)
                         .foregroundStyle(Color.ftPrimary)
                         .tracking(-1)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: FTSpacing.xs) {
-                    statPill(count: safeCount, label: "Fresh", color: .ftPrimaryFixed)
-                    statPill(count: warningCount, label: "Warning", color: .ftTertiaryContainer)
-                    statPill(count: criticalCount, label: "Critical", color: .ftErrorContainer)
+                    statPill(count: viewModel.safeCount, label: "Fresh", color: .ftPrimaryFixed)
+                    statPill(count: viewModel.warningCount, label: "Warning", color: .ftTertiaryContainer)
+                    statPill(count: viewModel.criticalCount, label: "Critical", color: .ftErrorContainer)
                 }
             }
         }
@@ -70,15 +109,6 @@ struct HomeView: View {
         }
     }
 
-    private var safeCount: Int { store.items.filter { $0.freshnessStatus == .safe }.count }
-    private var warningCount: Int { store.items.filter { $0.freshnessStatus == .warning }.count }
-    private var criticalCount: Int { store.items.filter { $0.freshnessStatus == .critical || $0.freshnessStatus == .expired }.count }
-    private var freshnessScore: Int {
-        guard !store.items.isEmpty else { return 100 }
-        let fresh = store.items.filter { $0.freshnessStatus == .safe }.count
-        return Int((Double(fresh) / Double(store.items.count)) * 100)
-    }
-
     // MARK: - Expiring Soon
 
     private var expiringSoonSection: some View {
@@ -87,7 +117,7 @@ struct HomeView: View {
                 .font(FTFonts.headlineMedium)
                 .foregroundStyle(Color.ftOnSurface)
 
-            ForEach(store.expiringSoonItems.prefix(5)) { item in
+            ForEach(viewModel.expiringSoonItems.prefix(5)) { item in
                 FoodItemCard(item: item)
             }
         }
@@ -127,6 +157,5 @@ struct HomeView: View {
 }
 
 #Preview {
-    HomeView()
-        .environmentObject(FoodStore())
+    HomeView(store: FoodStore())
 }
