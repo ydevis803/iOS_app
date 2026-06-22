@@ -15,10 +15,14 @@ under `UIAppFonts`, and bundled via the `Resources` group):
 | `Manrope-ExtraBold.ttf` | `Manrope-ExtraBold` |
 | `Manrope-Bold.ttf` | `Manrope-Bold` |
 | `Manrope-SemiBold.ttf` | `Manrope-SemiBold` |
-| `Inter-Regular.ttf` | `Inter-Regular` |
-| `Inter-Medium.ttf` | `Inter-Medium` |
-| `Inter-SemiBold.ttf` | `Inter-SemiBold` |
-| `Inter-Bold.ttf` | `Inter-Bold` |
+| `Inter_18pt-Regular.ttf` | `Inter18pt-Regular` |
+| `Inter_18pt-Medium.ttf` | `Inter18pt-Medium` |
+| `Inter_18pt-SemiBold.ttf` | `Inter18pt-SemiBold` |
+| `Inter_18pt-Bold.ttf` | `Inter18pt-Bold` |
+
+> The current Google Fonts Inter download ships optical-size variants (`Inter_18pt-*`,
+> `_24pt`, `_28pt`). We register the **18pt** set for UI text; the 24pt/28pt files are
+> not used and can be removed to keep the bundle lean.
 
 ## Verifying PostScript names
 

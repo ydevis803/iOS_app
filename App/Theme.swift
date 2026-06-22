@@ -109,24 +109,24 @@ struct FTFonts {
 
     // Body family: Inter
     static func bodyRegular(_ size: CGFloat) -> Font {
-        .custom("Inter-Regular", size: size)
+        .custom("Inter18pt-Regular", size: size)
     }
     static func bodyMedium(_ size: CGFloat) -> Font {
-        .custom("Inter-Medium", size: size)
+        .custom("Inter18pt-Medium", size: size)
     }
     static func bodySemiBold(_ size: CGFloat) -> Font {
-        .custom("Inter-SemiBold", size: size)
+        .custom("Inter18pt-SemiBold", size: size)
     }
     static func bodyBold(_ size: CGFloat) -> Font {
-        .custom("Inter-Bold", size: size)
+        .custom("Inter18pt-Bold", size: size)
     }
 
     // Label family: Inter
     static func labelSmall() -> Font {
-        .custom("Inter-SemiBold", size: 10).uppercaseSmallCaps()
+        .custom("Inter18pt-SemiBold", size: 10).uppercaseSmallCaps()
     }
     static func labelMedium() -> Font {
-        .custom("Inter-SemiBold", size: 11).uppercaseSmallCaps()
+        .custom("Inter18pt-SemiBold", size: 11).uppercaseSmallCaps()
     }
 
     // Semantic sizes
