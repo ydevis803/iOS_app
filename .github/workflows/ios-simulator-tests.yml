@@ -190,7 +190,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No screenshot changes to commit"
           else
-            git commit -m "Add iPhone simulator screenshots from CI run ${{ github.run_id }} [skip ci]"
+            git commit -m "Add iPhone simulator screenshots from CI run ${{ github.run_id }} "
             git push origin HEAD:${{ github.ref_name }}
           fi
 

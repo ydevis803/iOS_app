@@ -60,6 +60,14 @@ open FreshTrack.xcodeproj
 # 3. Build & run on simulator or device
 ```
 
+## Screenshots
+
+Captured on an iPhone simulator by the UI-test walkthrough in CI (see [`docs/screenshots`](docs/screenshots)).
+
+| Home | Pantry | Calendar | Recipes |
+|---|---|---|---|
+| ![Home](docs/screenshots/01-home.png) | ![Pantry](docs/screenshots/02-pantry-list.png) | ![Calendar](docs/screenshots/03-pantry-calendar.png) | ![Recipes](docs/screenshots/05-recipes.png) |
+
 ## Testing
 
 Two test bundles are generated alongside the app by `xcodegen generate`:
