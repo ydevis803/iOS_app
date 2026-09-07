@@ -66,8 +66,9 @@ struct ExpiryDateParser {
         Pattern(regex: #"\b(\d{1,2})\s*[-/. ]?\s*([A-Z]{3,9})\.?\s*[-/. ]?\s*(\d{4}|\d{2})\b"#) { g, p in
             p.makeDate(year: g[2], month: p.month(named: g[1]), day: Int(g[0]))
         },
-        // SEP 14 2026 / SEP 14, 26 / September 14 2026
-        Pattern(regex: #"\b([A-Z]{3,9})\.?\s*(\d{1,2}),?\s*(\d{4}|\d{2})\b"#) { g, p in
+        // SEP 14 2026 / SEP 14, 26 / September 14 2026 — a separator is required
+        // between day and year so "FEB 2028" cannot be read as FEB 20 '28.
+        Pattern(regex: #"\b([A-Z]{3,9})\.?\s*(\d{1,2})(?:,\s*|\s+)(\d{4}|\d{2})\b"#) { g, p in
             p.makeDate(year: g[2], month: p.month(named: g[0]), day: Int(g[1]))
         },
         // 14/09/2026 / 09-14-26 / 14.09.26 (locale decides the order, then the other order)
