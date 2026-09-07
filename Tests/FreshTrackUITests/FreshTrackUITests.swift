@@ -165,7 +165,12 @@ final class FreshTrackUITests: XCTestCase {
         // The pantry now offers manual entry too.
         let addManually = button(containing: "Add Manually")
         scrollUntilHittable(addManually)
+        XCTContext.runActivity(named: "FT-DEBUG addManually frame=\(addManually.frame) hittable=\(addManually.isHittable) window=\(app.frame)") { _ in }
+        XCTContext.runActivity(named: "FT-DEBUG buttons=\(app.buttons.allElementsBoundByIndex.map { "\($0.label)@\($0.frame.origin.y)" })") { _ in }
+        capture("14a-pantry-before-add-manually-tap")
         addManually.tap()
+        usleep(1_000_000)
+        capture("14b-pantry-after-add-manually-tap")
         XCTAssertTrue(sheetTitle.waitForExistence(timeout: 5), "Pantry's Add Manually should open the same sheet")
         capture("14-pantry-add-manually-sheet")
         app.buttons["Cancel"].tap()

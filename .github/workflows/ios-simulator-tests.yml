@@ -153,7 +153,7 @@ jobs:
             echo "::endgroup::"
             echo "::group::UI walkthrough activity trail (tail)"
             xcrun xcresulttool get test-results activities --path TestResults.xcresult \
-              --test-id "FreshTrackUITests/testWalkthroughOnIPhone()" 2>/dev/null | tail -300 || true
+              --test-id "FreshTrackUITests/testWalkthroughOnIPhone()" 2>/dev/null | grep -E '"title"' | grep -vE 'Checking|Capturing|Debug description|Expect predicate|Find:|Synthesize|idle' | tail -200 || true
             echo "::endgroup::"
           fi
           echo "::group::Screenshots captured"
