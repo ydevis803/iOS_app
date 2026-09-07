@@ -129,8 +129,12 @@ final class FreshTrackUITests: XCTestCase {
         capture("10-home-after-delete")
 
         // 9. Manual entry from the Home quick action ----------------------
-        button(containing: "Add Manual").tap()
-        let sheetTitle = app.navigationBars["Add Item"]
+        // Quick Actions sit below the expiring list, under the floating nav bar,
+        // so bring the card fully into view before tapping.
+        let addManual = button(containing: "Add Manual")
+        scrollUntilHittable(addManual)
+        addManual.tap()
+        let sheetTitle = app.staticTexts["ITEM NAME"]
         XCTAssertTrue(sheetTitle.waitForExistence(timeout: 5), "Add Manual should open the entry sheet")
 
         let nameField = app.textFields["e.g. Baby Spinach"]
