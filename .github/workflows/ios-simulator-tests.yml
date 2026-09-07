@@ -76,6 +76,9 @@ jobs:
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
+          # Pre-grant camera access so the scanner reaches its "no camera" state
+          # deterministically instead of waiting on a permission prompt.
+          xcrun simctl privacy "$UDID" grant camera "$BUNDLE_ID" || true
           # Clean status bar for screenshots.
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryLevel 100 \
             --batteryState charged --cellularBars 4 --wifiBars 3 --operatorName "" || true

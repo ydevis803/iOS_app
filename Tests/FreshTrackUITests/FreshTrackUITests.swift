@@ -92,9 +92,16 @@ final class FreshTrackUITests: XCTestCase {
         // 6. Scanner (no camera on the simulator, UI only) ----------------
         button(containing: "SCAN").tap()
         XCTAssertTrue(app.staticTexts["Auto-Scanning"].waitForExistence(timeout: 5), "Scanner overlay should be presented")
+        // First use asks for camera access unless CI pre-granted it.
+        allowSystemPermissionIfPrompted(timeout: 3)
         #if targetEnvironment(simulator)
-        XCTAssertTrue(app.staticTexts["No camera available"].waitForExistence(timeout: 5),
-                      "The simulator has no camera; the scanner should say so instead of showing a blank feed")
+        // The simulator has no camera: granted access ends in "No camera available",
+        // a refusal in "Camera access is off". Either way the user must be told.
+        let cameraNotice = app.staticTexts.matching(
+            NSPredicate(format: "label IN %@", ["No camera available", "Camera access is off"])
+        ).firstMatch
+        XCTAssertTrue(cameraNotice.waitForExistence(timeout: 5),
+                      "The scanner should explain why there is no live camera feed")
         #endif
         capture("07-scanner")
         let close = app.buttons["scanner.close"]
