@@ -3,6 +3,14 @@ name: iOS Simulator Tests
 on:
   push:
   workflow_dispatch:
+    inputs:
+      commit_screenshots:
+        description: "Commit preview-size screenshots to docs/screenshots on this branch"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 concurrency:
   group: ios-sim-${{ github.ref }}
@@ -92,6 +100,11 @@ jobs:
           echo "::endgroup::"
           exit $STATUS
 
+      - name: Capture raw simulator frame
+        if: always()
+        run: |
+          xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot screenshots/simctl-final.png || true
+
       - name: Test summary
         if: always()
         run: |
@@ -124,6 +137,29 @@ jobs:
           name: iphone-screenshots
           path: screenshots
           if-no-files-found: warn
+
+      - name: Commit preview screenshots to the branch
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.commit_screenshots
+        run: |
+          mkdir -p docs/screenshots
+          rm -f docs/screenshots/*.png
+          cp screenshots/preview/*.png docs/screenshots/ 2>/dev/null || true
+          cat > docs/screenshots/README.md <<MD
+          # iPhone simulator screenshots
+
+          Captured automatically by the \`iOS Simulator Tests\` workflow
+          (run ${{ github.run_id }}) on **${{ steps.sim.outputs.name }}**
+          (${{ steps.sim.outputs.runtime }}) from commit \`${{ github.sha }}\`.
+          MD
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          if git diff --cached --quiet; then
+            echo "No screenshot changes to commit"
+          else
+            git commit -m "Add iPhone simulator screenshots from CI run ${{ github.run_id }} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
 
       - name: Upload build log and result bundle
         if: always()
