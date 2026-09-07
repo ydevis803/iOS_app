@@ -292,6 +292,7 @@ struct AddItemSheet: View {
                 }
                 .padding(FTSpacing.xl)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.ftSurface)
             .navigationTitle("Add Item")
             .navigationBarTitleDisplayMode(.inline)

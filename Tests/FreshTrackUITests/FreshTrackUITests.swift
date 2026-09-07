@@ -140,11 +140,11 @@ final class FreshTrackUITests: XCTestCase {
         let nameField = app.textFields["e.g. Baby Spinach"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         nameField.tap()
-        nameField.typeText("Oat Milk\n") // return dismisses the keyboard
-        capture("11-add-item-sheet")
+        nameField.typeText("Oat Milk\n")
 
         let save = button(containing: "Add & Set 2-Day Alert")
-        scrollUntilHittable(save)
+        scrollUntilHittable(save) // scrolling also dismisses the keyboard
+        capture("11-add-item-sheet")
         save.tap()
         // Saving schedules a calendar event, which prompts for calendar access.
         allowSystemPermissionIfPrompted()
