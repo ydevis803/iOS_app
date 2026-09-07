@@ -91,7 +91,7 @@ final class FreshTrackUITests: XCTestCase {
 
         // 6. Scanner (no camera on the simulator, UI only) ----------------
         button(containing: "SCAN").tap()
-        XCTAssertTrue(app.staticTexts["Auto-Scanning"].waitForExistence(timeout: 5), "Scanner overlay should be presented")
+        XCTAssertTrue(app.staticTexts["Barcode"].waitForExistence(timeout: 5), "Scanner should open on the barcode step")
         // First use asks for camera access unless CI pre-granted it.
         allowSystemPermissionIfPrompted(timeout: 3)
         #if targetEnvironment(simulator)
@@ -107,7 +107,7 @@ final class FreshTrackUITests: XCTestCase {
         let close = app.buttons["scanner.close"]
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         close.tap()
-        XCTAssertTrue(waitForDisappearance(app.staticTexts["Auto-Scanning"], timeout: 5), "Scanner should dismiss")
+        XCTAssertTrue(waitForDisappearance(app.staticTexts["Barcode"], timeout: 5), "Scanner should dismiss")
 
         // 7. Delete a pantry item via its context menu --------------------
         button(containing: "Pantry").tap()
@@ -171,13 +171,46 @@ final class FreshTrackUITests: XCTestCase {
         app.buttons["Cancel"].tap()
         XCTAssertTrue(waitForDisappearance(sheetTitle, timeout: 5))
 
-        // And the pantry's primary button opens the scanner.
+        // 10. The two-step scanner without a camera: skip the barcode, estimate the
+        //     date, name the item, confirm ------------------------------------
         let logNew = button(containing: "Log New Ingredients")
         scrollUntilHittable(logNew)
         logNew.tap()
-        XCTAssertTrue(app.staticTexts["Auto-Scanning"].waitForExistence(timeout: 5), "Log New Ingredients should open the scanner")
-        app.buttons["scanner.close"].tap()
-        XCTAssertTrue(waitForDisappearance(app.staticTexts["Auto-Scanning"], timeout: 5))
+        XCTAssertTrue(app.staticTexts["Barcode"].waitForExistence(timeout: 5), "Log New Ingredients should open the scanner")
+
+        button(containing: "Skip to the date").tap()
+        XCTAssertTrue(button(containing: "No date printed").waitForExistence(timeout: 5), "Date step should offer the no-date fallback")
+        capture("15-scanner-date-step")
+
+        button(containing: "No date printed").tap()
+        let useEstimate = button(containing: "Use estimate")
+        XCTAssertTrue(useEstimate.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["When does it expire?"].exists)
+        capture("16-scanner-estimate")
+        useEstimate.tap()
+
+        let scanNameField = app.textFields["scanner.nameField"]
+        XCTAssertTrue(scanNameField.waitForExistence(timeout: 5), "Confirm step should appear with an editable name")
+        scanNameField.tap()
+        scanNameField.typeText("Bananas\n")
+        let confirmButton = app.buttons["scanner.confirm"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 5))
+        capture("17-scanner-confirm")
+        confirmButton.tap()
+        allowSystemPermissionIfPrompted(timeout: 3)
+        XCTAssertTrue(waitForDisappearance(app.staticTexts["Barcode"], timeout: 10), "Scanner should dismiss after confirming")
+
+        // The estimated item is in the pantry, tagged as estimated.
+        let bananas = app.staticTexts["Bananas"]
+        scrollUntilHittable(bananas)
+        XCTAssertTrue(app.staticTexts["Fridge · Est. expiry"].exists, "Estimated items should be tagged in the list")
+        capture("18-pantry-with-estimated-item")
+
+        // Home reflects it: 5 fresh of 11 = 45%.
+        button(containing: "HOME").tap()
+        XCTAssertTrue(app.staticTexts["45%"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["5 Fresh"].exists)
+        capture("19-home-after-scan-flow")
     }
 
     func testLaunchPerformance() throws {

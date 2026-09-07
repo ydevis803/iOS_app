@@ -303,7 +303,7 @@ struct FoodItemCard: View {
                     .font(FTFonts.headlineSemiBold(18))
                     .foregroundStyle(Color.ftOnSurface)
                     .lineLimit(1)
-                Text(item.placementLabel)
+                Text(item.isEstimatedExpiry ? "\(item.placementLabel) · Est. expiry" : item.placementLabel)
                     .font(FTFonts.bodyMediumFont)
                     .foregroundStyle(Color.ftOnSurfaceVariant)
                     .lineLimit(1)
