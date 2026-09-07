@@ -18,10 +18,17 @@ targets:
         # Scoped to the app target only: test bundles must keep their own
         # product/module names so `@testable import FreshTrack` resolves.
         PRODUCT_NAME: FreshTrack
+        # Preview assets stay out of release builds, as in Xcode's own template.
+        DEVELOPMENT_ASSET_PATHS: '"Resources/Preview Content"'
     sources:
       - path: App
-    resources:
+      # XcodeGen has no `resources:` key — bundle resources are `sources` entries
+      # with the resources build phase. Without this the asset catalog and fonts
+      # are silently left out of the app and every Color.ft* renders as clear.
       - path: Resources
+        buildPhase: resources
+        excludes:
+          - "Fonts/README.md"
     info:
       path: Support/Info.plist
       properties:
