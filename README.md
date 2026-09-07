@@ -9,7 +9,12 @@ A SwiftUI iOS app that tracks food freshness, scans product barcodes, syncs expi
 | `Theme.swift` | Full design system — colors, typography, radii, shadows, gradients, view modifiers (extracted from HTML/CSS) |
 | `FoodItem.swift` | Data models: `FoodItem`, `Recipe`, `ShoppingItem`, enums, sample data |
 | `FoodStore.swift` | Central `@ObservableObject` state manager — CRUD, batch logic, expiry scoring |
-| `ScannerView.swift` | Camera scanner — AVFoundation barcode capture; expiry entered/confirmed by the user |
+| `ScannerView.swift` | Two-step camera scanner: barcode, then the printed expiry date, then an editable confirm card |
+| `ScannerViewModel.swift` | Scanner state machine (barcode → date → confirm), camera permission, typed/estimated date fallbacks, demo product lookup |
+| `ScannerStepViews.swift` | Scan target, steps pill, date sheet, confirm card, camera notice |
+| `DataScannerView.swift` | VisionKit `DataScannerViewController` host — barcodes and label text in one session |
+| `ExpiryDateParser.swift` | Finds a printed best-before date in recognized text (numeric, ISO, month names, month-only stamps) |
+| `ShelfLifeEstimator.swift` | Category shelf-life estimates for packages with no printed date; such items are tagged as estimated |
 | `ContentView.swift` | Main tab navigation (Home / Scan / Kitchen) with glassmorphism nav bar |
 | `HomeView.swift` | Dashboard with freshness score, expiring-soon list, quick actions |
 | `PantryView.swift` | Inventory list / calendar toggle with add-item sheet |
@@ -22,11 +27,19 @@ A SwiftUI iOS app that tracks food freshness, scans product barcodes, syncs expi
 ## Frameworks Used
 
 - **SwiftUI** — All UI
-- **AVFoundation** — Barcode scanning (EAN-8/13, UPC-E, Code 128, QR, etc.)
+- **VisionKit** — Live barcode (EAN-8/13, UPC-E, Code 128, QR, etc.) and printed-date text recognition
+- **AVFoundation** — Camera permission and torch
 - **EventKit** — Calendar sync with 2-day-before alarm
 - **UserNotifications** — Local push alerts 2 days before expiry
 
-> Live OCR of printed expiry dates (VisionKit) is a planned enhancement and is not yet wired into the scanner.
+## Scanner flow
+
+The barcode and the printed date are rarely on the same face of a package, so the
+scanner runs as one camera session with two sequential states:
+
+1. **Barcode** — one large bracket, hands-free auto-scan; the product name seeds the next step. "Skip to the date" handles loose produce; "Add manually" opens the entry sheet.
+2. **Date** — the bracket becomes a text target and live text recognition parses the best-before stamp. The read date is shown for confirmation, never auto-saved. Fallbacks: type the date, or "No date printed", which proposes a category shelf-life estimate and tags the item as estimated.
+3. **Confirm** — name, expiry, and placement are editable in place and the alert date is spelled out before saving.
 
 ## Design System: "The Culinary Atelier"
 

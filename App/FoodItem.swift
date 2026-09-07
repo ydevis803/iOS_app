@@ -17,6 +17,8 @@ struct FoodItem: Identifiable, Codable, Hashable {
     var dateAdded: Date
     var calendarEventID: String?
     var notificationID: String?
+    /// `true` when the expiry came from a shelf-life estimate rather than the label.
+    var isEstimatedExpiry: Bool
 
     init(
         id: UUID = UUID(),
@@ -29,7 +31,8 @@ struct FoodItem: Identifiable, Codable, Hashable {
         barcode: String? = nil,
         dateAdded: Date = Date(),
         calendarEventID: String? = nil,
-        notificationID: String? = nil
+        notificationID: String? = nil,
+        isEstimatedExpiry: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -42,6 +45,31 @@ struct FoodItem: Identifiable, Codable, Hashable {
         self.dateAdded = dateAdded
         self.calendarEventID = calendarEventID
         self.notificationID = notificationID
+        self.isEstimatedExpiry = isEstimatedExpiry
+    }
+
+    // MARK: - Codable
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, brand, quantity, expirationDate, placement, category, barcode
+        case dateAdded, calendarEventID, notificationID, isEstimatedExpiry
+    }
+
+    /// Tolerates pantries saved before `isEstimatedExpiry` existed.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        brand = try container.decode(String.self, forKey: .brand)
+        quantity = try container.decode(String.self, forKey: .quantity)
+        expirationDate = try container.decode(Date.self, forKey: .expirationDate)
+        placement = try container.decode(StoragePlacement.self, forKey: .placement)
+        category = try container.decode(FoodCategory.self, forKey: .category)
+        barcode = try container.decodeIfPresent(String.self, forKey: .barcode)
+        dateAdded = try container.decode(Date.self, forKey: .dateAdded)
+        calendarEventID = try container.decodeIfPresent(String.self, forKey: .calendarEventID)
+        notificationID = try container.decodeIfPresent(String.self, forKey: .notificationID)
+        isEstimatedExpiry = try container.decodeIfPresent(Bool.self, forKey: .isEstimatedExpiry) ?? false
     }
 
     // MARK: - Computed Properties
@@ -200,11 +228,16 @@ struct ShoppingItem: Identifiable, Codable, Hashable {
 
 // MARK: - Scan Result
 
-/// The data produced by a scan: any of the fields may be `nil` if not detected.
+/// The data produced by a scan. `productName` and `expirationDate` are `nil` only
+/// if the flow was abandoned early; the confirm step guarantees both.
 struct ScanResult {
     var productName: String?
+    var brand: String = ""
     var expirationDate: Date?
     var barcode: String?
+    var placement: StoragePlacement = .fridge
+    var category: FoodCategory = .other
+    var isEstimatedExpiry: Bool = false
 }
 
 // MARK: - Sample Data

@@ -76,9 +76,17 @@ struct ContentView: View {
         // taps there. The bar's own bottom padding covers the indicator.
         .ignoresSafeArea(.container, edges: .bottom)
         .fullScreenCover(isPresented: $showScanner) {
-            ScannerView { result in
-                handleScanResult(result)
-            }
+            ScannerView(
+                onItemScanned: { result in handleScanResult(result) },
+                onAddManual: {
+                    // The cover is dismissing; present the sheet once it is gone.
+                    showScanner = false
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        showAddItem = true
+                    }
+                }
+            )
         }
         .sheet(isPresented: $showAddItem) {
             AddItemSheet(store: store)

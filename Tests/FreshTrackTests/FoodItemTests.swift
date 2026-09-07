@@ -44,6 +44,24 @@ final class FoodItemTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
 
+    func testDecodingPantrySavedBeforeEstimatedExpiryExistedDefaultsToFalse() throws {
+        let legacy = """
+        {"id":"7B1F3A1E-2C0D-4B8B-9F4D-0F6E0C1A2B3C","name":"Milk","brand":"","quantity":"1L",
+         "expirationDate":810000000,"placement":"Fridge","category":"Dairy","dateAdded":809000000}
+        """
+        let item = try JSONDecoder().decode(FoodItem.self, from: Data(legacy.utf8))
+        XCTAssertEqual(item.name, "Milk")
+        XCTAssertFalse(item.isEstimatedExpiry)
+        XCTAssertNil(item.barcode)
+    }
+
+    func testEstimatedExpiryFlagRoundTrips() throws {
+        let original = FoodItem(name: "Spinach", expirationDate: Date(), category: .produce, isEstimatedExpiry: true)
+        let decoded = try JSONDecoder().decode(FoodItem.self, from: JSONEncoder().encode(original))
+        XCTAssertTrue(decoded.isEstimatedExpiry)
+        XCTAssertEqual(decoded, original)
+    }
+
     func testSampleDataIsInternallyConsistent() {
         let names = Set(FoodItem.sampleItems.map(\.name))
         XCTAssertEqual(names.count, FoodItem.sampleItems.count, "Sample item names must be unique; recipes match on name")

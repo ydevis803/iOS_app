@@ -57,13 +57,19 @@ final class FoodStore: ObservableObject {
         items.append(newItem)
     }
 
-    /// Builds a `FoodItem` from a scan result (defaulting expiry to a week out) and stores it.
-    /// Centralizes the conversion that the scanner and pantry entry points both need.
+    /// Builds a `FoodItem` from a scan result and stores it. The scanner's confirm
+    /// step always supplies a name and a date; the fallbacks only guard an
+    /// abandoned flow.
     func addScanned(_ result: ScanResult) async {
+        let name = result.productName?.trimmingCharacters(in: .whitespaces) ?? ""
         let item = FoodItem(
-            name: result.productName ?? "Scanned Item",
+            name: name.isEmpty ? "Scanned Item" : name,
+            brand: result.brand,
             expirationDate: result.expirationDate ?? Calendar.current.date(byAdding: .day, value: 7, to: Date())!,
-            barcode: result.barcode
+            placement: result.placement,
+            category: result.category,
+            barcode: result.barcode,
+            isEstimatedExpiry: result.isEstimatedExpiry
         )
         await addItem(item)
     }
