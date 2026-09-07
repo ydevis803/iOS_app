@@ -41,8 +41,8 @@ Extracted from the provided HTML/CSS assets with full Material Design 3 tonal pa
 
 ## Requirements
 
-- iOS 16.0+
-- Xcode 15+
+- iOS 17.0+
+- Xcode 16+
 - Physical device recommended (camera scanner)
 
 ## Setup
@@ -59,3 +59,27 @@ open FreshTrack.xcodeproj
 # 2. Copy all App/*.swift files into the project
 # 3. Build & run on simulator or device
 ```
+
+## Testing
+
+Two test bundles are generated alongside the app by `xcodegen generate`:
+
+| Target | What it covers |
+|---|---|
+| `FreshTrackTests` (XCTest) | `FoodItem` freshness bands and labels, `FoodStore` expiry queries / recipe scoring / shopping list, view models, and JSON persistence (using the in-memory double, so no prompts or disk writes) |
+| `FreshTrackUITests` (XCUITest) | A full walkthrough on an iPhone simulator: Home → Pantry list → Calendar → Recipes → Shopping list → Scanner → context-menu delete, capturing a screenshot at every step |
+
+Run everything locally on a booted iPhone simulator:
+
+```bash
+xcodegen generate
+xcodebuild test -project FreshTrack.xcodeproj -scheme FreshTrack \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+```
+
+To also dump the walkthrough screenshots as PNG files, set
+`TEST_RUNNER_SCREENSHOT_DIR=/some/dir` in front of the `xcodebuild` command.
+
+The same run happens automatically in CI on every push
+([`.github/workflows/ios-simulator-tests.yml`](.github/workflows/ios-simulator-tests.yml));
+screenshots and the `.xcresult` bundle are published as workflow artifacts.

@@ -53,6 +53,7 @@ struct ScannerView: View {
                     .clipShape(Circle())
                     .background(.ultraThinMaterial.opacity(0.3), in: Circle())
             }
+            .accessibilityIdentifier("scanner.close")
 
             Spacer()
 

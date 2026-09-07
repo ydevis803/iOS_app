@@ -4,8 +4,7 @@ build/
 
 # XcodeGen — generated from project.yml (run `xcodegen generate`)
 *.xcodeproj/
-Support/Info.plist
-Support/FreshTrack.entitlements
+Support/
 *.pbxuser
 !default.pbxuser
 *.mode1v3

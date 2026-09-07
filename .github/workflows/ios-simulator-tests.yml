@@ -1,0 +1,136 @@
+name: iOS Simulator Tests
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-sim-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test on iPhone simulator
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: com.freshtrack.FreshTrack
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          xcodebuild -version
+          xcodebuild -list -project FreshTrack.xcodeproj
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import json, re, subprocess
+          data = json.loads(subprocess.check_output(
+              ["xcrun", "simctl", "list", "devices", "available", "-j"]))["devices"]
+          preferred = ["iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16",
+                       "iPhone 15 Pro", "iPhone 15"]
+          candidates = []
+          for runtime, devices in data.items():
+              if "iOS" not in runtime:
+                  continue
+              version = tuple(int(x) for x in re.findall(r"\d+", runtime.split("iOS")[-1]))
+              for d in devices:
+                  if d.get("isAvailable") and d["name"].startswith("iPhone"):
+                      rank = preferred.index(d["name"]) if d["name"] in preferred else len(preferred)
+                      candidates.append((version, -rank, d["name"], d["udid"], runtime))
+          if not candidates:
+              raise SystemExit("No available iPhone simulator found")
+          candidates.sort(reverse=True)
+          _, _, name, udid, runtime = candidates[0]
+          print(f"udid={udid}")
+          print(f"name={name}")
+          print(f"runtime={runtime.rsplit('.', 1)[-1]}")
+          PY
+
+      - name: Boot simulator
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          echo "Using ${{ steps.sim.outputs.name }} (${{ steps.sim.outputs.runtime }}) $UDID"
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          # Clean status bar for screenshots.
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryLevel 100 \
+            --batteryState charged --cellularBars 4 --wifiBars 3 --operatorName "" || true
+
+      - name: Build and run unit + UI tests
+        id: tests
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          mkdir -p screenshots
+          set +e
+          TEST_RUNNER_SCREENSHOT_DIR="$PWD/screenshots" \
+          xcodebuild test \
+            -project FreshTrack.xcodeproj \
+            -scheme FreshTrack \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath DerivedData \
+            -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled NO \
+            > xcodebuild.log 2>&1
+          STATUS=$?
+          set -e
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "::group::Compiler diagnostics"
+          grep -E "(error|warning): " xcodebuild.log | sort -u | head -200 || true
+          echo "::endgroup::"
+          echo "::group::Test results"
+          grep -E "Test Case|Test Suite|Executed|TEST (SUCCEEDED|FAILED)|BUILD (SUCCEEDED|FAILED)|\*\* " xcodebuild.log || true
+          echo "::endgroup::"
+          exit $STATUS
+
+      - name: Test summary
+        if: always()
+        run: |
+          if [ -d TestResults.xcresult ]; then
+            echo "::group::xcresult summary"
+            xcrun xcresulttool get test-results summary --path TestResults.xcresult 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::group::xcresult tests"
+            xcrun xcresulttool get test-results tests --path TestResults.xcresult 2>/dev/null || true
+            echo "::endgroup::"
+          fi
+          echo "::group::Screenshots captured"
+          ls -la screenshots || true
+          echo "::endgroup::"
+
+      - name: Make preview-size screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots/preview
+          for f in screenshots/*.png; do
+            [ -f "$f" ] || continue
+            sips -Z 900 "$f" --out "screenshots/preview/$(basename "$f")" >/dev/null
+          done
+          ls -la screenshots/preview || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-screenshots
+          path: screenshots
+          if-no-files-found: warn
+
+      - name: Upload build log and result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log-and-results
+          path: |
+            xcodebuild.log
+            TestResults.xcresult
+          if-no-files-found: warn
