@@ -165,12 +165,7 @@ final class FreshTrackUITests: XCTestCase {
         // The pantry now offers manual entry too.
         let addManually = button(containing: "Add Manually")
         scrollUntilHittable(addManually)
-        XCTContext.runActivity(named: "FT-DEBUG addManually frame=\(addManually.frame) hittable=\(addManually.isHittable) window=\(app.frame)") { _ in }
-        XCTContext.runActivity(named: "FT-DEBUG buttons=\(app.buttons.allElementsBoundByIndex.map { "\($0.label)@\($0.frame.origin.y)" })") { _ in }
-        capture("14a-pantry-before-add-manually-tap")
         addManually.tap()
-        usleep(1_000_000)
-        capture("14b-pantry-after-add-manually-tap")
         XCTAssertTrue(sheetTitle.waitForExistence(timeout: 5), "Pantry's Add Manually should open the same sheet")
         capture("14-pantry-add-manually-sheet")
         app.buttons["Cancel"].tap()
@@ -202,13 +197,24 @@ final class FreshTrackUITests: XCTestCase {
         return match
     }
 
+    /// Height of the floating glass nav bar plus its home-indicator padding.
+    private let bottomBarHeight: CGFloat = 110
+
+    /// Scrolls until `element` is hittable *and* sits fully above the bottom nav
+    /// bar. The bar is transparent to accessibility hit-testing, so `isHittable`
+    /// alone is true for an element hidden beneath it, or even below the screen.
     private func scrollUntilHittable(_ element: XCUIElement, maxSwipes: Int = 8) {
+        func inView() -> Bool {
+            guard element.exists, element.isHittable else { return false }
+            let frame = element.frame
+            return frame.minY >= app.frame.minY && frame.maxY <= app.frame.maxY - bottomBarHeight
+        }
         var swipes = 0
-        while !(element.exists && element.isHittable) && swipes < maxSwipes {
+        while !inView() && swipes < maxSwipes {
             dragScrollUp()
             swipes += 1
         }
-        XCTAssertTrue(element.exists && element.isHittable, "Could not scroll \(element) into view")
+        XCTAssertTrue(inView(), "Could not scroll \(element) into view (frame \(element.frame))")
     }
 
     /// Swipes up, then lets the scroll view finish decelerating: a tap that lands
