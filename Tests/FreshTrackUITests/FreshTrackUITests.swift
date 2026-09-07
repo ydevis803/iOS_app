@@ -191,10 +191,19 @@ final class FreshTrackUITests: XCTestCase {
     private func scrollUntilHittable(_ element: XCUIElement, maxSwipes: Int = 8) {
         var swipes = 0
         while !(element.exists && element.isHittable) && swipes < maxSwipes {
-            app.swipeUp()
+            dragScrollUp()
             swipes += 1
         }
         XCTAssertTrue(element.exists && element.isHittable, "Could not scroll \(element) into view")
+    }
+
+    /// Scrolls with a slow drag instead of a flick: a flick leaves the scroll view
+    /// decelerating, and a tap that lands during deceleration is swallowed.
+    private func dragScrollUp() {
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+        start.press(forDuration: 0.15, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+        usleep(300_000)
     }
 
     private func waitForDisappearance(_ element: XCUIElement, timeout: TimeInterval) -> Bool {

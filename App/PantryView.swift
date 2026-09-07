@@ -75,14 +75,16 @@ struct PantryView: View {
                 .padding(.top, FTSpacing.lg)
                 .padding(.bottom, 120)
             }
+            // Keep the sheet on a different view from the full-screen cover so the
+            // two presentations never compete for the same host.
+            .sheet(isPresented: $showAddItem) {
+                AddItemSheet(store: store)
+            }
         }
         .fullScreenCover(isPresented: $showScanner) {
             ScannerView { result in
                 handleScanResult(result)
             }
-        }
-        .sheet(isPresented: $showAddItem) {
-            AddItemSheet(store: store)
         }
     }
 
