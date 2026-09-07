@@ -54,7 +54,7 @@ final class ScannerViewModel: ObservableObject {
 
     private let authorizationStatus: () -> AVAuthorizationStatus
     private let requestAccess: () async -> Bool
-    private let isScannerAvailable: () -> Bool
+    private let isScannerAvailable: @MainActor () -> Bool
     private let parser: ExpiryDateParser
     private let now: () -> Date
     private var lastBarcode: String?
@@ -72,7 +72,7 @@ final class ScannerViewModel: ObservableObject {
         requestAccess: @escaping () async -> Bool = {
             await AVCaptureDevice.requestAccess(for: .video)
         },
-        isScannerAvailable: @escaping () -> Bool = {
+        isScannerAvailable: @escaping @MainActor () -> Bool = {
             DataScannerViewController.isSupported && DataScannerViewController.isAvailable
         },
         parser: ExpiryDateParser = ExpiryDateParser(),
