@@ -19,23 +19,29 @@ final class PantryViewModel: ObservableObject {
     var items: [FoodItem] { store.sortedItems }
 
     func remove(_ item: FoodItem) { store.removeItem(item) }
-
-    func addScanned(_ result: ScanResult) async { await store.addScanned(result) }
 }
 
 // MARK: - Pantry View (Inventory / Calendar Toggle)
 
 /// Inventory screen with a list/calendar toggle and entry points for scanning or
-/// manually adding items.
+/// manually adding items. Presentation of the scanner and the add sheet is owned
+/// by the root view (``ContentView``): a sheet presented from this nested view
+/// never appeared on device, so the entry points are injected as handlers.
 struct PantryView: View {
     @StateObject private var viewModel: PantryViewModel
     private let store: FoodStore
+    private let onScan: () -> Void
+    private let onAddManual: () -> Void
     @State private var viewMode: ViewMode = .list
-    @State private var showScanner = false
-    @State private var showAddItem = false
 
-    init(store: FoodStore) {
+    init(
+        store: FoodStore,
+        onScan: @escaping () -> Void = {},
+        onAddManual: @escaping () -> Void = {}
+    ) {
         self.store = store
+        self.onScan = onScan
+        self.onAddManual = onAddManual
         _viewModel = StateObject(wrappedValue: PantryViewModel(store: store))
     }
 
@@ -74,16 +80,6 @@ struct PantryView: View {
                 .padding(.horizontal, FTSpacing.lg)
                 .padding(.top, FTSpacing.lg)
                 .padding(.bottom, 120)
-            }
-            // Keep the sheet on a different view from the full-screen cover so the
-            // two presentations never compete for the same host.
-            .sheet(isPresented: $showAddItem) {
-                AddItemSheet(store: store)
-            }
-        }
-        .fullScreenCover(isPresented: $showScanner) {
-            ScannerView { result in
-                handleScanResult(result)
             }
         }
     }
@@ -145,9 +141,7 @@ struct PantryView: View {
 
     private var addButton: some View {
         VStack(spacing: FTSpacing.sm) {
-            Button {
-                showScanner = true
-            } label: {
+            Button(action: onScan) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
@@ -158,9 +152,7 @@ struct PantryView: View {
             .frame(maxWidth: 280)
 
             // Secondary path for items without a barcode (or without a camera).
-            Button {
-                showAddItem = true
-            } label: {
+            Button(action: onAddManual) {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 14))
@@ -175,11 +167,6 @@ struct PantryView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Handle Scan
-
-    private func handleScanResult(_ result: ScanResult) {
-        Task { await viewModel.addScanned(result) }
-    }
 }
 
 // MARK: - Add Item View Model

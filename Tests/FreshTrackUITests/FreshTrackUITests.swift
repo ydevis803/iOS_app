@@ -167,8 +167,17 @@ final class FreshTrackUITests: XCTestCase {
         scrollUntilHittable(addManually)
         addManually.tap()
         XCTAssertTrue(sheetTitle.waitForExistence(timeout: 5), "Pantry's Add Manually should open the same sheet")
+        capture("14-pantry-add-manually-sheet")
         app.buttons["Cancel"].tap()
         XCTAssertTrue(waitForDisappearance(sheetTitle, timeout: 5))
+
+        // And the pantry's primary button opens the scanner.
+        let logNew = button(containing: "Log New Ingredients")
+        scrollUntilHittable(logNew)
+        logNew.tap()
+        XCTAssertTrue(app.staticTexts["Auto-Scanning"].waitForExistence(timeout: 5), "Log New Ingredients should open the scanner")
+        app.buttons["scanner.close"].tap()
+        XCTAssertTrue(waitForDisappearance(app.staticTexts["Auto-Scanning"], timeout: 5))
     }
 
     func testLaunchPerformance() throws {

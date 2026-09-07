@@ -155,12 +155,6 @@ jobs:
             xcrun xcresulttool get test-results activities --path TestResults.xcresult \
               --test-id "FreshTrackUITests/testWalkthroughOnIPhone()" 2>/dev/null | tail -300 || true
             echo "::endgroup::"
-            # XCTest attaches an automatic screenshot on every failure; export them so
-            # they ride along with the walkthrough captures.
-            mkdir -p screenshots/attachments
-            xcrun xcresulttool export attachments --path TestResults.xcresult \
-              --output-path screenshots/attachments >/dev/null 2>&1 || true
-            ls -la screenshots/attachments || true
           fi
           echo "::group::Screenshots captured"
           ls -la screenshots || true
@@ -173,13 +167,6 @@ jobs:
           for f in screenshots/*.png; do
             [ -f "$f" ] || continue
             sips -Z 900 "$f" --out "screenshots/preview/$(basename "$f")" >/dev/null
-          done
-          # Failure screenshots from the result bundle (attachment names carry "Failure").
-          n=0
-          for f in screenshots/attachments/*ailure*.png screenshots/attachments/*ailure*.jpeg; do
-            [ -f "$f" ] || continue
-            n=$((n+1)); [ $n -le 6 ] || break
-            sips -Z 900 -s format png "$f" --out "screenshots/preview/failure-$n.png" >/dev/null
           done
           ls -la screenshots/preview || true
 

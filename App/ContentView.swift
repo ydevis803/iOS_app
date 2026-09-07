@@ -182,7 +182,11 @@ struct ContentView: View {
 
             switch kitchenSection {
             case .pantry:
-                PantryView(store: store)
+                PantryView(
+                    store: store,
+                    onScan: { showScanner = true },
+                    onAddManual: { showAddItem = true }
+                )
             case .recipes:
                 RecipesView(store: store)
             }
