@@ -8,6 +8,7 @@ struct ContentView: View {
     @StateObject private var store = FoodStore()
     @State private var selectedTab: Tab = .home
     @State private var showScanner = false
+    @State private var showAddItem = false
 
     enum Tab: String, CaseIterable {
         case home = "Home"
@@ -44,7 +45,17 @@ struct ContentView: View {
                 Group {
                     switch selectedTab {
                     case .home:
-                        HomeView(store: store)
+                        HomeView(
+                            store: store,
+                            onScan: { showScanner = true },
+                            onAddManual: { showAddItem = true },
+                            onShopping: {
+                                withAnimation(.spring(response: 0.3)) {
+                                    kitchenSection = .recipes
+                                    selectedTab = .kitchen
+                                }
+                            }
+                        )
                     case .scan:
                         Color.clear.onAppear {
                             showScanner = true
@@ -60,10 +71,17 @@ struct ContentView: View {
             // Bottom Navigation Bar
             bottomNavBar
         }
+        // Let the bottom-aligned nav bar run through the home-indicator area;
+        // otherwise scrolled content shows in a strip beneath it and can catch
+        // taps there. The bar's own bottom padding covers the indicator.
+        .ignoresSafeArea(.container, edges: .bottom)
         .fullScreenCover(isPresented: $showScanner) {
             ScannerView { result in
                 handleScanResult(result)
             }
+        }
+        .sheet(isPresented: $showAddItem) {
+            AddItemSheet(store: store)
         }
         .task {
             await store.notificationManager.requestAuthorization()
@@ -164,7 +182,11 @@ struct ContentView: View {
 
             switch kitchenSection {
             case .pantry:
-                PantryView(store: store)
+                PantryView(
+                    store: store,
+                    onScan: { showScanner = true },
+                    onAddManual: { showAddItem = true }
+                )
             case .recipes:
                 RecipesView(store: store)
             }

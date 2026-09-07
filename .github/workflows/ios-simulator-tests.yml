@@ -1,0 +1,212 @@
+name: iOS Simulator Tests
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      commit_screenshots:
+        description: "Commit preview-size screenshots to docs/screenshots on this branch"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-sim-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test on iPhone simulator
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      BUNDLE_ID: com.freshtrack.FreshTrack
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          xcodebuild -version
+          xcodebuild -list -project FreshTrack.xcodeproj
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import json, re, subprocess
+          data = json.loads(subprocess.check_output(
+              ["xcrun", "simctl", "list", "devices", "available", "-j"]))["devices"]
+          sdk = subprocess.check_output(
+              ["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"]).decode().strip()
+          sdk_major = int(sdk.split(".")[0])
+          print(f"sdk={sdk}")
+          preferred = ["iPhone 17 Pro", "iPhone 17", "iPhone 16 Pro", "iPhone 16",
+                       "iPhone 15 Pro", "iPhone 15"]
+          candidates = []
+          for runtime, devices in data.items():
+              if "iOS" not in runtime:
+                  continue
+              version = tuple(int(x) for x in re.findall(r"\d+", runtime.split("iOS")[-1]))
+              for d in devices:
+                  if d.get("isAvailable") and d["name"].startswith("iPhone"):
+                      rank = preferred.index(d["name"]) if d["name"] in preferred else len(preferred)
+                      # Runtimes matching the SDK major version sort first, then newest.
+                      matches_sdk = 1 if version and version[0] == sdk_major else 0
+                      candidates.append((matches_sdk, version, -rank, d["name"], d["udid"], runtime))
+          if not candidates:
+              raise SystemExit("No available iPhone simulator found")
+          candidates.sort(reverse=True)
+          _, _, _, name, udid, runtime = candidates[0]
+          print(f"udid={udid}")
+          print(f"name={name}")
+          print(f"runtime={runtime.rsplit('.', 1)[-1]}")
+          PY
+
+      - name: Boot simulator
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          echo "Using ${{ steps.sim.outputs.name }} (${{ steps.sim.outputs.runtime }}) $UDID"
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          # Pre-grant camera access so the scanner reaches its "no camera" state
+          # deterministically instead of waiting on a permission prompt.
+          xcrun simctl privacy "$UDID" grant camera "$BUNDLE_ID" || true
+          # Clean status bar for screenshots.
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryLevel 100 \
+            --batteryState charged --cellularBars 4 --wifiBars 3 --operatorName "" || true
+
+      - name: Build and run unit + UI tests
+        id: tests
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          mkdir -p screenshots
+          set +e
+          TEST_RUNNER_SCREENSHOT_DIR="$PWD/screenshots" \
+          xcodebuild test \
+            -project FreshTrack.xcodeproj \
+            -scheme FreshTrack \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -derivedDataPath DerivedData \
+            -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled NO \
+            > xcodebuild.log 2>&1
+          STATUS=$?
+          set -e
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "::group::Compiler diagnostics"
+          grep -E "(error|warning): " xcodebuild.log | sort -u | head -200 || true
+          echo "::endgroup::"
+          echo "::group::Test results"
+          grep -E "Test Case|Test Suite|Executed|TEST (SUCCEEDED|FAILED)|BUILD (SUCCEEDED|FAILED)|\*\* " xcodebuild.log || true
+          echo "::endgroup::"
+          exit $STATUS
+
+      - name: Capture raw simulator frame
+        if: always()
+        run: |
+          xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot screenshots/simctl-final.png || true
+
+      - name: Asset catalog and font diagnostics
+        if: always()
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          echo "::group::How the project references Resources"
+          grep -nE "xcassets|Fonts|lastKnownFileType = folder" FreshTrack.xcodeproj/project.pbxproj | head -40 || true
+          echo "::endgroup::"
+          echo "::group::Asset catalog compile steps in the build log"
+          grep -nE "CompileAssetCatalog|actool|Assets\.car|xcassets" xcodebuild.log | head -40 || true
+          echo "::endgroup::"
+          APP=$(find DerivedData -path '*iphonesimulator*' -name FreshTrack.app -type d | head -1)
+          echo "::group::Built app bundle contents ($APP)"
+          ls -la "$APP" || true
+          echo "::endgroup::"
+          echo "::group::Assets.car contents"
+          if [ -f "$APP/Assets.car" ]; then
+            xcrun assetutil --info "$APP/Assets.car" | grep -E '"(Name|AssetType|Color components)"' | head -120 || true
+          else
+            echo "No Assets.car in the app bundle"
+          fi
+          echo "::endgroup::"
+          echo "::group::Simulator log lines mentioning colors, fonts or assets"
+          xcrun simctl spawn "$UDID" log show --last 20m --style compact \
+            --predicate 'processImagePath CONTAINS "FreshTrack"' 2>/dev/null \
+            | grep -iE "color|font|asset|catalog" | head -60 || true
+          echo "::endgroup::"
+
+      - name: Test summary
+        if: always()
+        run: |
+          if [ -d TestResults.xcresult ]; then
+            echo "::group::xcresult summary"
+            xcrun xcresulttool get test-results summary --path TestResults.xcresult 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::group::xcresult tests"
+            xcrun xcresulttool get test-results tests --path TestResults.xcresult 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::group::UI walkthrough activity trail (tail)"
+            xcrun xcresulttool get test-results activities --path TestResults.xcresult \
+              --test-id "FreshTrackUITests/testWalkthroughOnIPhone()" 2>/dev/null | grep -E '"title"' | grep -vE 'Checking|Capturing|Debug description|Expect predicate|Find:|Synthesize|idle' | tail -200 || true
+            echo "::endgroup::"
+          fi
+          echo "::group::Screenshots captured"
+          ls -la screenshots || true
+          echo "::endgroup::"
+
+      - name: Make preview-size screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots/preview
+          for f in screenshots/*.png; do
+            [ -f "$f" ] || continue
+            sips -Z 900 "$f" --out "screenshots/preview/$(basename "$f")" >/dev/null
+          done
+          ls -la screenshots/preview || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-screenshots
+          path: screenshots
+          if-no-files-found: warn
+
+      - name: Commit preview screenshots to the branch
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.commit_screenshots
+        run: |
+          mkdir -p docs/screenshots
+          rm -f docs/screenshots/*.png
+          cp screenshots/preview/*.png docs/screenshots/ 2>/dev/null || true
+          cat > docs/screenshots/README.md <<MD
+          # iPhone simulator screenshots
+
+          Captured automatically by the \`iOS Simulator Tests\` workflow
+          (run ${{ github.run_id }}) on **${{ steps.sim.outputs.name }}**
+          (${{ steps.sim.outputs.runtime }}) from commit \`${{ github.sha }}\`.
+          MD
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          if git diff --cached --quiet; then
+            echo "No screenshot changes to commit"
+          else
+            git commit -m "Add iPhone simulator screenshots from CI run ${{ github.run_id }}"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+
+      - name: Upload build log and result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log-and-results
+          path: |
+            xcodebuild.log
+            TestResults.xcresult
+          if-no-files-found: warn

@@ -19,23 +19,29 @@ final class PantryViewModel: ObservableObject {
     var items: [FoodItem] { store.sortedItems }
 
     func remove(_ item: FoodItem) { store.removeItem(item) }
-
-    func addScanned(_ result: ScanResult) async { await store.addScanned(result) }
 }
 
 // MARK: - Pantry View (Inventory / Calendar Toggle)
 
 /// Inventory screen with a list/calendar toggle and entry points for scanning or
-/// manually adding items.
+/// manually adding items. Presentation of the scanner and the add sheet is owned
+/// by the root view (``ContentView``): a sheet presented from this nested view
+/// never appeared on device, so the entry points are injected as handlers.
 struct PantryView: View {
     @StateObject private var viewModel: PantryViewModel
     private let store: FoodStore
+    private let onScan: () -> Void
+    private let onAddManual: () -> Void
     @State private var viewMode: ViewMode = .list
-    @State private var showScanner = false
-    @State private var showAddItem = false
 
-    init(store: FoodStore) {
+    init(
+        store: FoodStore,
+        onScan: @escaping () -> Void = {},
+        onAddManual: @escaping () -> Void = {}
+    ) {
         self.store = store
+        self.onScan = onScan
+        self.onAddManual = onAddManual
         _viewModel = StateObject(wrappedValue: PantryViewModel(store: store))
     }
 
@@ -75,14 +81,6 @@ struct PantryView: View {
                 .padding(.top, FTSpacing.lg)
                 .padding(.bottom, 120)
             }
-        }
-        .fullScreenCover(isPresented: $showScanner) {
-            ScannerView { result in
-                handleScanResult(result)
-            }
-        }
-        .sheet(isPresented: $showAddItem) {
-            AddItemSheet(store: store)
         }
     }
 
@@ -142,11 +140,8 @@ struct PantryView: View {
     // MARK: - Add Button
 
     private var addButton: some View {
-        HStack {
-            Spacer()
-            Button {
-                showScanner = true
-            } label: {
+        VStack(spacing: FTSpacing.sm) {
+            Button(action: onScan) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
@@ -155,15 +150,23 @@ struct PantryView: View {
             }
             .buttonStyle(FTPrimaryButtonStyle())
             .frame(maxWidth: 280)
-            Spacer()
+
+            // Secondary path for items without a barcode (or without a camera).
+            Button(action: onAddManual) {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 14))
+                    Text("Add Manually")
+                        .font(FTFonts.bodySemiBold(14))
+                }
+                .foregroundStyle(Color.ftPrimary)
+                .padding(FTSpacing.sm)
+            }
+            .accessibilityLabel("Add Manually")
         }
+        .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Handle Scan
-
-    private func handleScanResult(_ result: ScanResult) {
-        Task { await viewModel.addScanned(result) }
-    }
 }
 
 // MARK: - Add Item View Model
@@ -235,12 +238,15 @@ struct AddItemSheet: View {
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(1.5)
                             .foregroundStyle(Color.ftOnSurfaceVariant)
+                        // Six placements do not fit a segmented control on iPhone widths
+                        // (labels truncate to "Count…"), so use a menu like Category.
                         Picker("Placement", selection: $viewModel.placement) {
                             ForEach(StoragePlacement.allCases, id: \.self) { p in
                                 Text(p.label).tag(p)
                             }
                         }
-                        .pickerStyle(.segmented)
+                        .pickerStyle(.menu)
+                        .tint(Color.ftPrimary)
                     }
 
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
@@ -275,6 +281,7 @@ struct AddItemSheet: View {
                 }
                 .padding(FTSpacing.xl)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.ftSurface)
             .navigationTitle("Add Item")
             .navigationBarTitleDisplayMode(.inline)

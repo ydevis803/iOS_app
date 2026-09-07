@@ -2,10 +2,9 @@ name: FreshTrack
 options:
   bundleIdPrefix: com.freshtrack
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
 settings:
   base:
-    PRODUCT_NAME: FreshTrack
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
@@ -13,11 +12,23 @@ targets:
   FreshTrack:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "17.0"
+    settings:
+      base:
+        # Scoped to the app target only: test bundles must keep their own
+        # product/module names so `@testable import FreshTrack` resolves.
+        PRODUCT_NAME: FreshTrack
+        # Preview assets stay out of release builds, as in Xcode's own template.
+        DEVELOPMENT_ASSET_PATHS: '"Resources/Preview Content"'
     sources:
       - path: App
-    resources:
+      # XcodeGen has no `resources:` key — bundle resources are `sources` entries
+      # with the resources build phase. Without this the asset catalog and fonts
+      # are silently left out of the app and every Color.ft* renders as clear.
       - path: Resources
+        buildPhase: resources
+        excludes:
+          - "Fonts/README.md"
     info:
       path: Support/Info.plist
       properties:
@@ -38,9 +49,31 @@ targets:
           - Inter_18pt-Medium.ttf
           - Inter_18pt-SemiBold.ttf
           - Inter_18pt-Bold.ttf
-    entitlements:
-      path: Support/FreshTrack.entitlements
-      properties:
-        com.apple.security.app-sandbox: true
     scheme:
-      testTargets: []
+      testTargets:
+        - FreshTrackTests
+        - FreshTrackUITests
+
+  FreshTrackTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests/FreshTrackTests
+    dependencies:
+      - target: FreshTrack
+    info:
+      path: Support/FreshTrackTests-Info.plist
+      properties: {}
+
+  FreshTrackUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests/FreshTrackUITests
+    dependencies:
+      - target: FreshTrack
+    info:
+      path: Support/FreshTrackUITests-Info.plist
+      properties: {}
