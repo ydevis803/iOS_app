@@ -189,10 +189,10 @@ final class FreshTrackUITests: XCTestCase {
         capture("16-scanner-estimate")
         useEstimate.tap()
 
-        let nameField = app.textFields["scanner.nameField"]
-        XCTAssertTrue(nameField.waitForExistence(timeout: 5), "Confirm step should appear with an editable name")
-        nameField.tap()
-        nameField.typeText("Bananas\n")
+        let scanNameField = app.textFields["scanner.nameField"]
+        XCTAssertTrue(scanNameField.waitForExistence(timeout: 5), "Confirm step should appear with an editable name")
+        scanNameField.tap()
+        scanNameField.typeText("Bananas\n")
         let confirmButton = app.buttons["scanner.confirm"]
         XCTAssertTrue(confirmButton.waitForExistence(timeout: 5))
         capture("17-scanner-confirm")
