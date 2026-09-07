@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 // MARK: - Scanner View (Barcode via AVFoundation)
 
@@ -26,6 +27,12 @@ struct ScannerView: View {
             }
             .padding(.top, 60)
             .padding(.bottom, 120)
+
+            // Camera unavailable / permission denied notice
+            if let notice = cameraNotice(for: viewModel.cameraState) {
+                notice
+                    .transition(.opacity)
+            }
 
             // Slide-up confirmation card
             if viewModel.showConfirmation, let result = viewModel.scanResult {
@@ -116,6 +123,76 @@ struct ScannerView: View {
                 ScanBracket(width: 192, height: 64, cornerSize: 12, borderWidth: 2, color: .ftTertiaryContainer.opacity(0.7))
             }
         }
+    }
+
+    // MARK: - Camera Notice
+
+    /// Explains why the live preview is empty and, when access was denied, offers a
+    /// shortcut to Settings. Returns `nil` while the camera is usable.
+    private func cameraNotice(for state: ScannerViewModel.CameraState) -> AnyView? {
+        switch state {
+        case .idle, .running:
+            return nil
+        case .denied:
+            return AnyView(
+                noticeCard(
+                    icon: "camera.fill",
+                    title: "Camera access is off",
+                    message: "Allow camera access in Settings to scan barcodes, or add items manually from the Pantry.",
+                    buttonTitle: "Open Settings"
+                ) {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            )
+        case .unavailable:
+            return AnyView(
+                noticeCard(
+                    icon: "camera.metering.unknown",
+                    title: "No camera available",
+                    message: "This device has no usable camera. You can still add items manually from the Pantry.",
+                    buttonTitle: nil,
+                    action: nil
+                )
+            )
+        }
+    }
+
+    private func noticeCard(
+        icon: String,
+        title: String,
+        message: String,
+        buttonTitle: String?,
+        action: (() -> Void)?
+    ) -> some View {
+        VStack {
+            Spacer()
+            VStack(spacing: FTSpacing.md) {
+                Image(systemName: icon)
+                    .font(.system(size: 28))
+                    .foregroundStyle(Color.ftOnSurfaceVariant)
+                Text(title)
+                    .font(FTFonts.headlineSmall)
+                    .foregroundStyle(Color.ftOnSurface)
+                Text(message)
+                    .font(FTFonts.bodyMediumFont)
+                    .foregroundStyle(Color.ftOnSurfaceVariant)
+                    .multilineTextAlignment(.center)
+                if let buttonTitle, let action {
+                    Button(buttonTitle, action: action)
+                        .buttonStyle(FTPrimaryButtonStyle())
+                        .padding(.top, FTSpacing.xs)
+                }
+            }
+            .padding(FTSpacing.xl)
+            .background(Color.ftSurfaceContainerLowest)
+            .clipShape(RoundedRectangle(cornerRadius: FTRadius.xl, style: .continuous))
+            .shadow(color: .black.opacity(0.1), radius: 20, y: 8)
+            .padding(.horizontal, FTSpacing.xl)
+            .padding(.bottom, 140)
+        }
+        .accessibilityIdentifier("scanner.cameraNotice")
     }
 
     private func detectedLabel(icon: String, text: String, color: Color) -> some View {
@@ -245,15 +322,39 @@ struct ScannerView: View {
 /// ``ScanResult``, and manages flash and confirmation state.
 @MainActor
 final class ScannerViewModel: ObservableObject {
+    /// Whether the live camera can be used, and if not, why.
+    enum CameraState: Equatable {
+        case idle
+        case running
+        /// The user denied access (or it is restricted); the app cannot prompt again.
+        case denied
+        /// No usable camera on this device (e.g. the simulator).
+        case unavailable
+    }
+
     @Published var scanResult: ScanResult?
     @Published var showConfirmation = false
     @Published var isFlashOn = false
+    @Published private(set) var cameraState: CameraState = .idle
 
     let captureSession = AVCaptureSession()
     private var metadataOutput: AVCaptureMetadataOutput?
     private let scanDelegate = ScannerDelegate()
+    private let authorizationStatus: () -> AVAuthorizationStatus
+    private let requestAccess: () async -> Bool
 
-    init() {
+    /// The permission hooks default to `AVCaptureDevice` and are injectable so the
+    /// authorization flow can be unit-tested without a real camera.
+    init(
+        authorizationStatus: @escaping () -> AVAuthorizationStatus = {
+            AVCaptureDevice.authorizationStatus(for: .video)
+        },
+        requestAccess: @escaping () async -> Bool = {
+            await AVCaptureDevice.requestAccess(for: .video)
+        }
+    ) {
+        self.authorizationStatus = authorizationStatus
+        self.requestAccess = requestAccess
         scanDelegate.onBarcodeDetected = { [weak self] barcode in
             Task { @MainActor in
                 guard let self, self.scanResult?.barcode == nil else { return }
@@ -268,13 +369,22 @@ final class ScannerViewModel: ObservableObject {
         }
     }
 
+    /// Starts the camera if permitted, prompts when permission has not been decided
+    /// yet, and otherwise records why scanning is not possible in ``cameraState``.
     func startScanning() {
-        guard AVCaptureDevice.authorizationStatus(for: .video) != .denied else {
-            Task { await requestCameraAccess() }
-            return
+        switch authorizationStatus() {
+        case .authorized:
+            setupCaptureSession()
+        case .notDetermined:
+            Task { [weak self] in
+                guard let self else { return }
+                await self.requestCameraAccess()
+            }
+        case .denied, .restricted:
+            cameraState = .denied
+        @unknown default:
+            cameraState = .denied
         }
-
-        setupCaptureSession()
     }
 
     func stopScanning() {
@@ -302,15 +412,23 @@ final class ScannerViewModel: ObservableObject {
     // MARK: - Private
 
     private func requestCameraAccess() async {
-        let granted = await AVCaptureDevice.requestAccess(for: .video)
-        if granted {
+        if await requestAccess() {
             setupCaptureSession()
+        } else {
+            cameraState = .denied
         }
     }
 
     private func setupCaptureSession() {
+        guard captureSession.isRunning == false else {
+            cameraState = .running
+            return
+        }
         guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-              let videoInput = try? AVCaptureDeviceInput(device: videoDevice) else { return }
+              let videoInput = try? AVCaptureDeviceInput(device: videoDevice) else {
+            cameraState = .unavailable
+            return
+        }
 
         captureSession.beginConfiguration()
 
@@ -330,6 +448,7 @@ final class ScannerViewModel: ObservableObject {
         }
 
         captureSession.commitConfiguration()
+        cameraState = .running
 
         Task.detached { [captureSession] in
             captureSession.startRunning()

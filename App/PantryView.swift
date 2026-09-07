@@ -142,8 +142,7 @@ struct PantryView: View {
     // MARK: - Add Button
 
     private var addButton: some View {
-        HStack {
-            Spacer()
+        VStack(spacing: FTSpacing.sm) {
             Button {
                 showScanner = true
             } label: {
@@ -155,8 +154,23 @@ struct PantryView: View {
             }
             .buttonStyle(FTPrimaryButtonStyle())
             .frame(maxWidth: 280)
-            Spacer()
+
+            // Secondary path for items without a barcode (or without a camera).
+            Button {
+                showAddItem = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 14))
+                    Text("Add Manually")
+                        .font(FTFonts.bodySemiBold(14))
+                }
+                .foregroundStyle(Color.ftPrimary)
+                .padding(FTSpacing.sm)
+            }
+            .accessibilityLabel("Add Manually")
         }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Handle Scan

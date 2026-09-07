@@ -92,6 +92,10 @@ final class FreshTrackUITests: XCTestCase {
         // 6. Scanner (no camera on the simulator, UI only) ----------------
         button(containing: "SCAN").tap()
         XCTAssertTrue(app.staticTexts["Auto-Scanning"].waitForExistence(timeout: 5), "Scanner overlay should be presented")
+        #if targetEnvironment(simulator)
+        XCTAssertTrue(app.staticTexts["No camera available"].waitForExistence(timeout: 5),
+                      "The simulator has no camera; the scanner should say so instead of showing a blank feed")
+        #endif
         capture("07-scanner")
         let close = app.buttons["scanner.close"]
         XCTAssertTrue(close.waitForExistence(timeout: 5))
@@ -116,6 +120,44 @@ final class FreshTrackUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["33%"].waitForExistence(timeout: 5), "3 fresh of 9 remaining = 33%")
         XCTAssertTrue(app.staticTexts["1 Critical"].exists)
         capture("10-home-after-delete")
+
+        // 9. Manual entry from the Home quick action ----------------------
+        button(containing: "Add Manual").tap()
+        let sheetTitle = app.navigationBars["Add Item"]
+        XCTAssertTrue(sheetTitle.waitForExistence(timeout: 5), "Add Manual should open the entry sheet")
+
+        let nameField = app.textFields["e.g. Baby Spinach"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
+        nameField.typeText("Oat Milk\n") // return dismisses the keyboard
+        capture("11-add-item-sheet")
+
+        let save = button(containing: "Add & Set 2-Day Alert")
+        scrollUntilHittable(save)
+        save.tap()
+        // Saving schedules a calendar event, which prompts for calendar access.
+        allowSystemPermissionIfPrompted()
+        XCTAssertTrue(waitForDisappearance(sheetTitle, timeout: 15), "Sheet should dismiss after saving")
+
+        // Default expiry is 7 days out, so the new item counts as fresh: 4 of 10 = 40%.
+        XCTAssertTrue(app.staticTexts["40%"].waitForExistence(timeout: 5), "Manual item should raise the score to 40%")
+        XCTAssertTrue(app.staticTexts["4 Fresh"].exists)
+        capture("12-home-after-manual-add")
+
+        // The item is in the pantry list, sorted by expiry near the bottom.
+        button(containing: "KITCHEN").tap()
+        XCTAssertTrue(app.staticTexts["My Pantry"].waitForExistence(timeout: 5))
+        let oatMilk = app.staticTexts["Oat Milk"]
+        scrollUntilHittable(oatMilk)
+        capture("13-pantry-with-manual-item")
+
+        // The pantry now offers manual entry too.
+        let addManually = button(containing: "Add Manually")
+        scrollUntilHittable(addManually)
+        addManually.tap()
+        XCTAssertTrue(sheetTitle.waitForExistence(timeout: 5), "Pantry's Add Manually should open the same sheet")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForDisappearance(sheetTitle, timeout: 5))
     }
 
     func testLaunchPerformance() throws {

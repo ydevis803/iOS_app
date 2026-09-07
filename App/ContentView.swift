@@ -8,6 +8,7 @@ struct ContentView: View {
     @StateObject private var store = FoodStore()
     @State private var selectedTab: Tab = .home
     @State private var showScanner = false
+    @State private var showAddItem = false
 
     enum Tab: String, CaseIterable {
         case home = "Home"
@@ -44,7 +45,17 @@ struct ContentView: View {
                 Group {
                     switch selectedTab {
                     case .home:
-                        HomeView(store: store)
+                        HomeView(
+                            store: store,
+                            onScan: { showScanner = true },
+                            onAddManual: { showAddItem = true },
+                            onShopping: {
+                                withAnimation(.spring(response: 0.3)) {
+                                    kitchenSection = .recipes
+                                    selectedTab = .kitchen
+                                }
+                            }
+                        )
                     case .scan:
                         Color.clear.onAppear {
                             showScanner = true
@@ -64,6 +75,9 @@ struct ContentView: View {
             ScannerView { result in
                 handleScanResult(result)
             }
+        }
+        .sheet(isPresented: $showAddItem) {
+            AddItemSheet(store: store)
         }
         .task {
             await store.notificationManager.requestAuthorization()

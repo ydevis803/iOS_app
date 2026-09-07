@@ -40,8 +40,21 @@ final class HomeViewModel: ObservableObject {
 struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
 
-    init(store: FoodStore) {
+    /// Quick-action handlers; navigation is owned by the parent, which injects them.
+    private let onScan: () -> Void
+    private let onAddManual: () -> Void
+    private let onShopping: () -> Void
+
+    init(
+        store: FoodStore,
+        onScan: @escaping () -> Void = {},
+        onAddManual: @escaping () -> Void = {},
+        onShopping: @escaping () -> Void = {}
+    ) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(store: store))
+        self.onScan = onScan
+        self.onAddManual = onAddManual
+        self.onShopping = onShopping
     }
 
     var body: some View {
@@ -132,27 +145,36 @@ struct HomeView: View {
                 .foregroundStyle(Color.ftOnSurface)
 
             HStack(spacing: FTSpacing.lg) {
-                quickActionCard(icon: "barcode.viewfinder", label: "Scan Item", color: .ftPrimary)
-                quickActionCard(icon: "plus.circle", label: "Add Manual", color: .ftSecondary)
-                quickActionCard(icon: "list.bullet", label: "Shopping", color: .ftTertiary)
+                quickActionCard(icon: "barcode.viewfinder", label: "Scan Item", color: .ftPrimary, action: onScan)
+                quickActionCard(icon: "plus.circle", label: "Add Manual", color: .ftSecondary, action: onAddManual)
+                quickActionCard(icon: "list.bullet", label: "Shopping", color: .ftTertiary, action: onShopping)
             }
         }
     }
 
-    private func quickActionCard(icon: String, label: String, color: Color) -> some View {
-        VStack(spacing: FTSpacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(color)
-            Text(label)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.ftOnSurfaceVariant)
+    private func quickActionCard(
+        icon: String,
+        label: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: FTSpacing.sm) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundStyle(color)
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.ftOnSurfaceVariant)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, FTSpacing.xl)
+            .background(Color.ftSurfaceContainerLowest)
+            .clipShape(RoundedRectangle(cornerRadius: FTRadius.card, style: .continuous))
+            .shadow(color: FTShadow.card.color, radius: 8, y: 2)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, FTSpacing.xl)
-        .background(Color.ftSurfaceContainerLowest)
-        .clipShape(RoundedRectangle(cornerRadius: FTRadius.card, style: .continuous))
-        .shadow(color: FTShadow.card.color, radius: 8, y: 2)
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
