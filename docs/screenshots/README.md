@@ -1,5 +1,5 @@
 # iPhone simulator screenshots
 
 Captured automatically by the `iOS Simulator Tests` workflow
-(run 34143118388) on **iPhone 16 Pro**
-(iOS-18-6) from commit `6b0606668e480714e05e3d7e95135bcd3d10dfcd`.
+(run 34144080150) on **iPhone 16 Pro**
+(iOS-18-6) from commit `a0b03a1187dcbceb571aa2afb99223b7e4cfffc1`.
