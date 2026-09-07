@@ -226,6 +226,9 @@ struct ContentView: View {
         .padding(.top, FTSpacing.lg)
         .padding(.bottom, 36) // Safe area + spacing
         .ftGlassNav()
+        // Extend the bar through the home-indicator area; otherwise scrolled
+        // content shows in a strip beneath it and can catch taps there.
+        .ignoresSafeArea(.container, edges: .bottom)
     }
 
     // MARK: - Handle Scan

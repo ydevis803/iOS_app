@@ -249,12 +249,15 @@ struct AddItemSheet: View {
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(1.5)
                             .foregroundStyle(Color.ftOnSurfaceVariant)
+                        // Six placements do not fit a segmented control on iPhone widths
+                        // (labels truncate to "Count…"), so use a menu like Category.
                         Picker("Placement", selection: $viewModel.placement) {
                             ForEach(StoragePlacement.allCases, id: \.self) { p in
                                 Text(p.label).tag(p)
                             }
                         }
-                        .pickerStyle(.segmented)
+                        .pickerStyle(.menu)
+                        .tint(Color.ftPrimary)
                     }
 
                     VStack(alignment: .leading, spacing: FTSpacing.sm) {
