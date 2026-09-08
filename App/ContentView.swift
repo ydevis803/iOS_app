@@ -120,14 +120,14 @@ struct ContentView: View {
     private var topAppBar: some View {
         HStack {
             HStack(spacing: 12) {
-                // Profile avatar placeholder
+                // App leaf mark
                 Circle()
                     .fill(Color.ftSurfaceContainerHigh)
                     .frame(width: 40, height: 40)
                     .overlay(
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 36))
-                            .foregroundStyle(Color.ftPrimaryContainer)
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color.ftPrimary)
                     )
                     .overlay(
                         Circle()
