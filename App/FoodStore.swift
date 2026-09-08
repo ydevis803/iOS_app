@@ -136,6 +136,13 @@ final class FoodStore: ObservableObject {
         items.sorted { $0.daysUntilExpiry < $1.daysUntilExpiry }
     }
 
+    /// Items worth alerting about — expiring within four days or already expired —
+    /// soonest first. Drives the notification bell's badge and list.
+    var itemsNeedingAttention: [FoodItem] {
+        items.filter { $0.daysUntilExpiry <= 4 }
+            .sorted { $0.daysUntilExpiry < $1.daysUntilExpiry }
+    }
+
     /// Items expiring on a specific calendar day.
     func items(expiringOn date: Date) -> [FoodItem] {
         let calendar = Calendar.current
