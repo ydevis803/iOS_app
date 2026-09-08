@@ -107,6 +107,17 @@ final class FoodStore: ObservableObject {
         items.removeAll { $0.id == item.id }
     }
 
+    /// Marks a recipe as cooked by using up its ingredients: removes every pantry
+    /// item whose name matches one of the recipe's ingredients (and cancels their
+    /// alerts/calendar events). Returns the names that were used.
+    @discardableResult
+    func markCooked(_ recipe: Recipe) -> [String] {
+        let names = Set(recipe.ingredients)
+        let used = items.filter { names.contains($0.name) }
+        used.forEach { removeItem($0) }
+        return used.map(\.name)
+    }
+
     /// Appends a new entry to the shopping list.
     func addToShoppingList(name: String, note: String = "") {
         shoppingList.append(ShoppingItem(name: name, note: note))

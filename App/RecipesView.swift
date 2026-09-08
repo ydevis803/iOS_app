@@ -35,6 +35,8 @@ final class RecipesViewModel: ObservableObject {
 struct RecipesView: View {
     @StateObject private var viewModel: RecipesViewModel
     private let store: FoodStore
+    /// The recipe whose detail sheet is showing.
+    @State private var startedRecipe: Recipe?
 
     init(store: FoodStore) {
         self.store = store
@@ -52,6 +54,9 @@ struct RecipesView: View {
             .padding(.bottom, 120)
         }
         .background(Color.ftSurface)
+        .sheet(item: $startedRecipe) { recipe in
+            RecipeDetailSheet(recipe: recipe, store: store)
+        }
     }
 
     // MARK: - Batch Cooking Section
@@ -155,7 +160,7 @@ struct RecipesView: View {
             }
 
             // Start recipe button
-            Button {} label: {
+            Button { startedRecipe = recipe } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "fork.knife")
                         .font(.system(size: 14))
@@ -273,6 +278,131 @@ struct FlowLayout: Layout {
         }
 
         return (positions, CGSize(width: maxWidth, height: currentY + lineHeight))
+    }
+}
+
+// MARK: - Recipe Detail Sheet
+
+/// Shows a recipe's details and which of its ingredients are in the pantry, with a
+/// "Mark as Cooked" action that uses up (removes) those matching pantry items.
+struct RecipeDetailSheet: View {
+    let recipe: Recipe
+    @ObservedObject var store: FoodStore
+    @Environment(\.dismiss) private var dismiss
+
+    /// Pantry items whose name matches one of the recipe's ingredients.
+    private var pantryMatches: [FoodItem] {
+        store.items.filter { recipe.ingredients.contains($0.name) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: FTSpacing.xl) {
+                    header
+                    Text(recipe.description)
+                        .font(FTFonts.bodyLarge)
+                        .foregroundStyle(Color.ftOnSurfaceVariant)
+                    ingredientsSection
+                }
+                .padding(FTSpacing.xl)
+            }
+            .background(Color.ftSurface)
+            .navigationTitle("Recipe")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                        .foregroundStyle(Color.ftPrimary)
+                }
+            }
+            .safeAreaInset(edge: .bottom) { markCookedBar }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.sm) {
+            HStack(spacing: 4) {
+                Image(systemName: recipe.urgencyLevel.icon)
+                    .font(.system(size: 12))
+                Text(recipe.urgencyLevel.rawValue)
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.5)
+            }
+            .foregroundStyle(recipe.urgencyLevel.color)
+
+            Text(recipe.name)
+                .font(FTFonts.displayMedium)
+                .foregroundStyle(Color.ftOnSurface)
+
+            Text("\(recipe.portions) portions")
+                .font(FTFonts.bodyMediumFont)
+                .foregroundStyle(Color.ftOnSurfaceVariant)
+        }
+    }
+
+    private var ingredientsSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("INGREDIENTS")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.5)
+                .foregroundStyle(Color.ftOnSurfaceVariant)
+
+            ForEach(recipe.ingredients, id: \.self) { ingredient in
+                ingredientRow(ingredient)
+            }
+        }
+    }
+
+    private func ingredientRow(_ name: String) -> some View {
+        let item = store.items.first { $0.name == name }
+        return HStack(spacing: FTSpacing.md) {
+            Image(systemName: item == nil ? "circle" : "checkmark.circle.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(item == nil ? Color.ftOutline : Color.ftPrimary)
+            Text(name)
+                .font(FTFonts.bodyLarge)
+                .foregroundStyle(Color.ftOnSurface)
+            Spacer(minLength: 0)
+            if let item {
+                Text(item.expiryLabel)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(item.freshnessStatus.chipForeground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(item.freshnessStatus.chipBackground)
+                    .clipShape(Capsule())
+            } else {
+                Text("Not in pantry")
+                    .font(FTFonts.bodyMediumFont)
+                    .foregroundStyle(Color.ftOnSurfaceVariant)
+            }
+        }
+        .padding(FTSpacing.md)
+        .background(Color.ftSurfaceContainerLow)
+        .clipShape(RoundedRectangle(cornerRadius: FTRadius.md, style: .continuous))
+    }
+
+    private var markCookedBar: some View {
+        VStack(spacing: FTSpacing.sm) {
+            Button {
+                store.markCooked(recipe)
+                dismiss()
+            } label: {
+                Label("Mark as Cooked", systemImage: "checkmark")
+            }
+            .buttonStyle(FTPrimaryButtonStyle())
+            .disabled(pantryMatches.isEmpty)
+            .opacity(pantryMatches.isEmpty ? 0.5 : 1)
+
+            Text(pantryMatches.isEmpty
+                 ? "None of these are in your pantry yet."
+                 : "Uses up \(pantryMatches.count) item\(pantryMatches.count == 1 ? "" : "s") from your pantry.")
+                .font(FTFonts.bodySmall)
+                .foregroundStyle(Color.ftOnSurfaceVariant)
+        }
+        .padding(FTSpacing.xl)
+        .background(.ultraThinMaterial)
     }
 }
 
