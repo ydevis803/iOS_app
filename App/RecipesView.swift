@@ -304,6 +304,7 @@ struct RecipeDetailSheet: View {
                         .font(FTFonts.bodyLarge)
                         .foregroundStyle(Color.ftOnSurfaceVariant)
                     ingredientsSection
+                    if !recipe.steps.isEmpty { instructionsSection }
                 }
                 .padding(FTSpacing.xl)
             }
@@ -350,6 +351,29 @@ struct RecipeDetailSheet: View {
 
             ForEach(recipe.ingredients, id: \.self) { ingredient in
                 ingredientRow(ingredient)
+            }
+        }
+    }
+
+    private var instructionsSection: some View {
+        VStack(alignment: .leading, spacing: FTSpacing.md) {
+            Text("INSTRUCTIONS")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.5)
+                .foregroundStyle(Color.ftOnSurfaceVariant)
+
+            ForEach(Array(recipe.steps.enumerated()), id: \.offset) { index, step in
+                HStack(alignment: .top, spacing: FTSpacing.md) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.ftOnPrimary)
+                        .frame(width: 24, height: 24)
+                        .background(Color.ftPrimary, in: Circle())
+                    Text(step)
+                        .font(FTFonts.bodyLarge)
+                        .foregroundStyle(Color.ftOnSurface)
+                    Spacer(minLength: 0)
+                }
             }
         }
     }

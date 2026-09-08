@@ -171,6 +171,8 @@ struct Recipe: Identifiable, Hashable {
     let portions: Int
     let ingredients: [String]
     let urgencyLevel: RecipeUrgency
+    /// Short preparation steps, shown in the recipe detail sheet.
+    let steps: [String]
 
     init(
         id: UUID = UUID(),
@@ -178,7 +180,8 @@ struct Recipe: Identifiable, Hashable {
         description: String,
         portions: Int,
         ingredients: [String],
-        urgencyLevel: RecipeUrgency = .smartIdea
+        urgencyLevel: RecipeUrgency = .smartIdea,
+        steps: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -186,6 +189,7 @@ struct Recipe: Identifiable, Hashable {
         self.portions = portions
         self.ingredients = ingredients
         self.urgencyLevel = urgencyLevel
+        self.steps = steps
     }
 }
 
@@ -334,35 +338,62 @@ extension Recipe {
             description: "Your beef, carrots, and onions are expiring in 2 days. Slow cook them today for meals all week.",
             portions: 6,
             ingredients: ["Beef Chuck", "Carrots", "Onions"],
-            urgencyLevel: .urgentPrep
+            urgencyLevel: .urgentPrep,
+            steps: [
+                "Season the beef chuck and sear on all sides in a hot pot.",
+                "Add chopped onions and carrots around the beef.",
+                "Pour in stock to halfway, cover, and simmer 3 hours until tender.",
+                "Rest 10 minutes, then slice and serve with the vegetables."
+            ]
         ),
         Recipe(
             name: "Vegetable Minestrone",
             description: "Use up those softening tomatoes, celery, and spinach before they turn.",
             portions: 4,
             ingredients: ["Tomatoes", "Celery", "Baby Spinach"],
-            urgencyLevel: .smartIdea
+            urgencyLevel: .smartIdea,
+            steps: [
+                "Sauté diced celery and tomatoes until softened.",
+                "Add stock and any beans or pasta; simmer 20 minutes.",
+                "Stir in the spinach and cook 2 minutes until wilted.",
+                "Season to taste and serve hot."
+            ]
         ),
         Recipe(
             name: "Avocado Toast Brunch",
             description: "Perfect way to use ripe avocados and sourdough before they go.",
             portions: 4,
             ingredients: ["Hass Avocados", "Sourdough Bread", "Tomatoes"],
-            urgencyLevel: .urgentPrep
+            urgencyLevel: .urgentPrep,
+            steps: [
+                "Toast the sourdough slices until golden.",
+                "Mash the avocados with a pinch of salt and lemon.",
+                "Spread over the toast and top with sliced tomatoes."
+            ]
         ),
         Recipe(
             name: "Yogurt Smoothie Bowl",
             description: "Blend yogurt with spinach and top with fresh ingredients.",
             portions: 2,
             ingredients: ["Greek Yogurt", "Baby Spinach", "Almond Milk"],
-            urgencyLevel: .smartIdea
+            urgencyLevel: .smartIdea,
+            steps: [
+                "Blend the yogurt, spinach, and almond milk until smooth.",
+                "Pour into bowls.",
+                "Top with fresh fruit, seeds, or granola."
+            ]
         ),
         Recipe(
             name: "Stir-Fried Vegetables",
             description: "Quick stir-fry with carrots, celery, and onions.",
             portions: 3,
             ingredients: ["Carrots", "Celery", "Onions"],
-            urgencyLevel: .smartIdea
+            urgencyLevel: .smartIdea,
+            steps: [
+                "Heat oil in a wok or large pan over high heat.",
+                "Stir-fry the carrots, celery, and onions for 5–7 minutes.",
+                "Add a splash of soy sauce, toss, and serve."
+            ]
         )
     ]
 }
