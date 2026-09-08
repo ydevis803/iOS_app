@@ -2,30 +2,38 @@ import SwiftUI
 
 // MARK: - Scan Target
 
-/// The bracket the user aims with. Wide and green for a barcode, shorter and rose
-/// for the printed date; the recognized product name is pinned above it on step 2.
+/// The bracket the user aims with. A large green square for framing the item or
+/// its label, shorter and rose for the printed date; the recognized product name
+/// is pinned above it on step 2.
 struct ScanTarget: View {
     let step: ScannerViewModel.Step
     let productName: String
 
     var body: some View {
         VStack(spacing: FTSpacing.lg) {
-            if step == .date, !productName.isEmpty {
-                DetectedLabel(icon: "barcode.viewfinder", text: productName, color: .ftPrimary)
+            if step == .date {
+                if productName.isEmpty {
+                    // Recognition found no name (or the photo was skipped) — reassure
+                    // the user they can still name it on the confirm step.
+                    DetectedLabel(
+                        icon: "questionmark.circle",
+                        text: "Couldn't name it — add it after the date",
+                        color: .ftTertiary
+                    )
+                } else {
+                    DetectedLabel(icon: "camera.viewfinder", text: productName, color: .ftPrimary)
+                }
             }
 
             ZStack {
                 ScanBracket(
-                    width: step == .barcode ? 280 : 250,
-                    height: step == .barcode ? 150 : 92,
+                    width: step == .photo ? 260 : 250,
+                    height: step == .photo ? 260 : 92,
                     cornerSize: 16,
                     borderWidth: 4,
-                    color: step == .barcode ? .ftPrimaryFixed.opacity(0.95) : .ftTertiaryContainer.opacity(0.95)
+                    color: step == .photo ? .ftPrimaryFixed.opacity(0.95) : .ftTertiaryContainer.opacity(0.95)
                 )
-                if step == .barcode {
-                    ScanLineView()
-                        .frame(width: 252)
-                } else {
+                if step == .date {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(Color.ftTertiaryContainer.opacity(0.14))
                         .overlay(
@@ -36,7 +44,7 @@ struct ScanTarget: View {
                 }
             }
 
-            Text(step == .barcode ? "Point at the barcode" : "Now the best-before date")
+            Text(step == .photo ? "Center the item or its label" : "Now the best-before date")
                 .font(FTFonts.bodyMedium(14))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -119,16 +127,40 @@ struct CameraNotice: View {
 
 // MARK: - Step 1 footer
 
-/// Escape hatches under the barcode bracket for items without a barcode.
-struct BarcodeStepFooter: View {
+/// The photo step's controls: a shutter button that captures and names the item,
+/// plus escape hatches to skip naming or enter everything by hand.
+struct PhotoStepFooter: View {
+    let isCapturing: Bool
+    let onCapture: () -> Void
     let onSkip: () -> Void
     let onAddManual: () -> Void
 
     var body: some View {
-        VStack(spacing: FTSpacing.md) {
-            Text("Loose produce or no barcode?")
+        VStack(spacing: FTSpacing.lg) {
+            Text(isCapturing ? "Recognizing…" : "Take a photo of the item or its label")
                 .font(FTFonts.bodyRegular(13))
                 .foregroundStyle(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+
+            // Shutter button.
+            Button(action: onCapture) {
+                ZStack {
+                    Circle()
+                        .stroke(.white.opacity(0.9), lineWidth: 4)
+                        .frame(width: 72, height: 72)
+                    if isCapturing {
+                        ProgressView().tint(.white)
+                    } else {
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 58, height: 58)
+                    }
+                }
+            }
+            .disabled(isCapturing)
+            .accessibilityLabel("Take photo")
+            .accessibilityIdentifier("scanner.capture")
+
             HStack(spacing: FTSpacing.md) {
                 TranslucentButton(title: "Skip to the date", systemImage: "calendar", action: onSkip)
                 TranslucentButton(title: "Add manually", systemImage: "keyboard", action: onAddManual)
@@ -299,7 +331,7 @@ struct DateStepSheet: View {
                 Text("Type the date")
                     .font(FTFonts.headlineMedium)
                     .foregroundStyle(Color.ftOnSurface)
-                Text(viewModel.draft.name.isEmpty ? "No barcode scanned" : viewModel.draft.name)
+                Text(viewModel.draft.name.isEmpty ? "Item not named yet" : viewModel.draft.name)
                     .font(FTFonts.bodyMediumFont)
                     .foregroundStyle(Color.ftOnSurfaceVariant)
             }
@@ -486,8 +518,8 @@ struct ConfirmCard: View {
     }
 
     private var subtitle: String {
-        let parts = [viewModel.draft.brand, viewModel.draft.barcode ?? ""].filter { !$0.isEmpty }
-        return parts.isEmpty ? "No barcode" : parts.joined(separator: " · ")
+        if !viewModel.draft.brand.isEmpty { return viewModel.draft.brand }
+        return viewModel.recognitionNote ?? "Tap to edit the name"
     }
 
     private func detailBox<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {

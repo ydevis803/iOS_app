@@ -89,9 +89,13 @@ final class CalendarViewModel: ObservableObject {
 /// items expiring on a tapped date.
 struct CalendarGridView: View {
     @StateObject private var viewModel: CalendarViewModel
+    private let store: FoodStore
+    /// The item currently being edited, driving the edit sheet.
+    @State private var editingItem: FoodItem?
 
     init(store: FoodStore) {
         _viewModel = StateObject(wrappedValue: CalendarViewModel(store: store))
+        self.store = store
     }
 
     var body: some View {
@@ -100,6 +104,9 @@ struct CalendarGridView: View {
             if let selected = viewModel.selectedDate {
                 selectedDateItems(date: selected)
             }
+        }
+        .sheet(item: $editingItem) { item in
+            EditItemSheet(item: item, store: store)
         }
     }
 
@@ -142,7 +149,9 @@ struct CalendarGridView: View {
 
             // Date grid
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: FTSpacing.sm) {
-                ForEach(viewModel.daysInMonth(), id: \.self) { date in
+                // Key by index: the padding slots are all `nil` and would collide
+                // under `id: \.self`, so identify cells by their grid position.
+                ForEach(Array(viewModel.daysInMonth().enumerated()), id: \.offset) { _, date in
                     if let date = date {
                         dayCell(date: date)
                             .onTapGesture {
@@ -273,6 +282,7 @@ struct CalendarGridView: View {
             } else {
                 ForEach(items) { item in
                     FoodItemCard(item: item)
+                        .onTapGesture { editingItem = item }
                 }
             }
         }

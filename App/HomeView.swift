@@ -39,6 +39,9 @@ final class HomeViewModel: ObservableObject {
 /// Dashboard showing the overall freshness score, expiring-soon items, and quick actions.
 struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
+    private let store: FoodStore
+    /// The item currently being edited, driving the edit sheet.
+    @State private var editingItem: FoodItem?
 
     /// Quick-action handlers; navigation is owned by the parent, which injects them.
     private let onScan: () -> Void
@@ -52,6 +55,7 @@ struct HomeView: View {
         onShopping: @escaping () -> Void = {}
     ) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(store: store))
+        self.store = store
         self.onScan = onScan
         self.onAddManual = onAddManual
         self.onShopping = onShopping
@@ -76,6 +80,9 @@ struct HomeView: View {
             .padding(.bottom, 120)
         }
         .background(Color.ftSurface)
+        .sheet(item: $editingItem) { item in
+            EditItemSheet(item: item, store: store)
+        }
     }
 
     // MARK: - Freshness Summary
@@ -132,6 +139,7 @@ struct HomeView: View {
 
             ForEach(viewModel.expiringSoonItems.prefix(5)) { item in
                 FoodItemCard(item: item)
+                    .onTapGesture { editingItem = item }
             }
         }
     }

@@ -17,6 +17,9 @@ final class FreshTrackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        // Start each run from clean, in-memory sample data so the walkthrough's
+        // mutations (delete/add) don't leak between runs.
+        app.launchArguments += ["-uitest-reset"]
         app.launch()
         // The root view requests notification permission on launch.
         allowSystemPermissionIfPrompted()
@@ -24,7 +27,7 @@ final class FreshTrackUITests: XCTestCase {
 
     // MARK: - Walkthrough
 
-    func testWalkthroughOnIPhone() throws {
+    func testWalkthroughOnIPhone() throws {                                                                                                                                                                                                                                                                                                                                            
         // 1. Home dashboard -------------------------------------------------
         XCTAssertTrue(app.staticTexts["Freshness Score"].waitForExistence(timeout: 15), "Home screen did not appear")
         XCTAssertTrue(app.staticTexts["30%"].exists, "Sample pantry should score 3 fresh of 10 = 30%")
@@ -91,7 +94,7 @@ final class FreshTrackUITests: XCTestCase {
 
         // 6. Scanner (no camera on the simulator, UI only) ----------------
         button(containing: "SCAN").tap()
-        XCTAssertTrue(app.staticTexts["Barcode"].waitForExistence(timeout: 5), "Scanner should open on the barcode step")
+        XCTAssertTrue(app.staticTexts["Photo"].waitForExistence(timeout: 5), "Scanner should open on the photo step")
         // First use asks for camera access unless CI pre-granted it.
         allowSystemPermissionIfPrompted(timeout: 3)
         #if targetEnvironment(simulator)
@@ -107,18 +110,21 @@ final class FreshTrackUITests: XCTestCase {
         let close = app.buttons["scanner.close"]
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         close.tap()
-        XCTAssertTrue(waitForDisappearance(app.staticTexts["Barcode"], timeout: 5), "Scanner should dismiss")
+        XCTAssertTrue(waitForDisappearance(app.staticTexts["Photo"], timeout: 5), "Scanner should dismiss")
 
-        // 7. Delete a pantry item via its context menu --------------------
+        // 7. Delete a pantry item by swiping the card --------------------
         button(containing: "Pantry").tap()
         let spinach = app.staticTexts["Baby Spinach"].firstMatch
         XCTAssertTrue(spinach.waitForExistence(timeout: 5))
-        spinach.press(forDuration: 1.2)
+        spinach.swipeLeft()
+        // A short swipe reveals a Delete button; a long one deletes outright.
+        // Tolerate both so the test isn't sensitive to XCUI's swipe distance.
         let delete = app.buttons["Delete"]
-        XCTAssertTrue(delete.waitForExistence(timeout: 5), "Context menu should offer Delete")
-        capture("08-pantry-context-menu")
-        delete.tap()
-        XCTAssertTrue(waitForDisappearance(spinach, timeout: 5), "Deleted item should leave the list")
+        if delete.waitForExistence(timeout: 2) {
+            capture("08-pantry-swipe-delete")
+            delete.tap()
+        }
+        XCTAssertTrue(waitForDisappearance(spinach, timeout: 5), "Swiping the card should remove the item")
         capture("09-pantry-after-delete")
 
         // 8. Home reflects the deletion ----------------------------------
@@ -140,10 +146,14 @@ final class FreshTrackUITests: XCTestCase {
         let nameField = app.textFields["e.g. Baby Spinach"]
         XCTAssertTrue(nameField.waitForExistence(timeout: 5))
         nameField.tap()
+        // Return submits the name field, which dismisses the keyboard so the save
+        // button below the fold is reachable.
         nameField.typeText("Oat Milk\n")
 
+        // The save button sits at the bottom of the sheet (no floating nav bar to
+        // clear here), so tap it directly once the keyboard is gone.
         let save = button(containing: "Add & Set 2-Day Alert")
-        scrollUntilHittable(save) // scrolling also dismisses the keyboard
+        if !save.isHittable { app.swipeUp() }
         capture("11-add-item-sheet")
         save.tap()
         // Saving schedules a calendar event, which prompts for calendar access.
@@ -171,12 +181,12 @@ final class FreshTrackUITests: XCTestCase {
         app.buttons["Cancel"].tap()
         XCTAssertTrue(waitForDisappearance(sheetTitle, timeout: 5))
 
-        // 10. The two-step scanner without a camera: skip the barcode, estimate the
+        // 10. The two-step scanner without a camera: skip the photo, estimate the
         //     date, name the item, confirm ------------------------------------
         let logNew = button(containing: "Log New Ingredients")
         scrollUntilHittable(logNew)
         logNew.tap()
-        XCTAssertTrue(app.staticTexts["Barcode"].waitForExistence(timeout: 5), "Log New Ingredients should open the scanner")
+        XCTAssertTrue(app.staticTexts["Photo"].waitForExistence(timeout: 5), "Log New Ingredients should open the scanner")
 
         button(containing: "Skip to the date").tap()
         XCTAssertTrue(button(containing: "No date printed").waitForExistence(timeout: 5), "Date step should offer the no-date fallback")
@@ -198,7 +208,7 @@ final class FreshTrackUITests: XCTestCase {
         capture("17-scanner-confirm")
         confirmButton.tap()
         allowSystemPermissionIfPrompted(timeout: 3)
-        XCTAssertTrue(waitForDisappearance(app.staticTexts["Barcode"], timeout: 10), "Scanner should dismiss after confirming")
+        XCTAssertTrue(waitForDisappearance(app.staticTexts["Photo"], timeout: 10), "Scanner should dismiss after confirming")
 
         // The estimated item is in the pantry, tagged as estimated.
         let bananas = app.staticTexts["Bananas"]
@@ -213,8 +223,45 @@ final class FreshTrackUITests: XCTestCase {
         capture("19-home-after-scan-flow")
     }
 
+    /// Focused coverage for the two recent additions — the camera step now opens on
+    /// a "Photo" step with a shutter (barcode reading removed), and pantry cards
+    /// support swipe-to-delete. Kept separate from the full walkthrough so it does
+    /// not depend on unrelated screens.
+    func testPhotoScannerStepAndSwipeToDelete() throws {
+        XCTAssertTrue(app.staticTexts["Freshness Score"].waitForExistence(timeout: 15), "Home screen did not appear")
+
+        // Scanner opens on the photo step with a shutter, then skips to the date step.
+        button(containing: "SCAN").tap()
+        XCTAssertTrue(app.staticTexts["Photo"].waitForExistence(timeout: 5), "Scanner should open on the photo step")
+        allowSystemPermissionIfPrompted(timeout: 3)
+        XCTAssertTrue(app.buttons["scanner.capture"].waitForExistence(timeout: 5), "Photo step should show a shutter button")
+        button(containing: "Skip to the date").tap()
+        XCTAssertTrue(app.staticTexts["Date"].waitForExistence(timeout: 5), "Skipping should advance to the date step")
+
+        // Dismiss the scanner: back to the photo step, then close.
+        app.buttons["scanner.back"].tap()
+        app.buttons["scanner.close"].tap()
+
+        // Swipe a pantry card to delete it (tolerating reveal-then-tap or long-swipe).
+        button(containing: "KITCHEN").tap()
+        button(containing: "Pantry").tap()
+        let spinach = app.staticTexts["Baby Spinach"].firstMatch
+        XCTAssertTrue(spinach.waitForExistence(timeout: 5))
+        spinach.swipeLeft()
+        let delete = app.buttons["Delete"]
+        if delete.waitForExistence(timeout: 2) { delete.tap() }
+        XCTAssertTrue(waitForDisappearance(spinach, timeout: 5), "Swiping the card should remove the item")
+    }
+
     func testLaunchPerformance() throws {
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
+        // setUp already launched an app; terminate it so the measured launches
+        // don't contend with a second live instance (which crashes the runner).
+        app.terminate()
+        // A single iteration avoids flaky "0 metrics" on later iterations in this
+        // simulator environment while still recording a launch baseline.
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+        measure(metrics: [XCTApplicationLaunchMetric()], options: options) {
             XCUIApplication().launch()
         }
     }

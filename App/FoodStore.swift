@@ -74,6 +74,28 @@ final class FoodStore: ObservableObject {
         await addItem(item)
     }
 
+    /// Replaces an edited item in place, rescheduling its notification and calendar
+    /// event so a changed name or expiry date is reflected in both.
+    func updateItem(_ item: FoodItem) async {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+
+        // Tear down the previously scheduled alert/event, then reschedule from the
+        // edited values so we never leave an orphaned notification or calendar entry.
+        if let notifID = items[index].notificationID {
+            notificationManager.cancelNotification(identifier: notifID)
+        }
+        if let eventID = items[index].calendarEventID {
+            calendarManager.removeEvent(identifier: eventID)
+        }
+
+        var updated = item
+        await notificationManager.requestAuthorization()
+        updated.notificationID = notificationManager.scheduleExpiryAlert(for: updated)
+        updated.calendarEventID = await calendarManager.addExpirationEvent(for: updated)
+
+        items[index] = updated
+    }
+
     /// Removes an item and cancels its associated notification and calendar event.
     func removeItem(_ item: FoodItem) {
         if let notifID = item.notificationID {

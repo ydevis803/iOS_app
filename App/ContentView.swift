@@ -5,8 +5,23 @@ import SwiftUI
 /// Root view: owns the shared ``FoodStore``, hosts the Home/Scan/Kitchen tabs, and
 /// presents the scanner. Acts as the composition root that injects the store downward.
 struct ContentView: View {
-    @StateObject private var store = FoodStore()
+    @StateObject private var store: FoodStore
     @State private var selectedTab: Tab = .home
+
+    /// - Parameter store: The shared store. Defaults to a file-backed store, but
+    ///   UI tests launched with `-uitest-reset` get a fresh in-memory store so
+    ///   every run starts from clean sample data and never touches disk.
+    init(store: FoodStore? = nil) {
+        let resolved: FoodStore
+        if let store {
+            resolved = store
+        } else if ProcessInfo.processInfo.arguments.contains("-uitest-reset") {
+            resolved = FoodStore(persistence: InMemoryPersistence())
+        } else {
+            resolved = FoodStore()
+        }
+        _store = StateObject(wrappedValue: resolved)
+    }
     @State private var showScanner = false
     @State private var showAddItem = false
 
