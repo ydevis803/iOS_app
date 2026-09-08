@@ -84,6 +84,8 @@ struct ShoppingListView: View {
                 HStack(spacing: FTSpacing.sm) {
                     TextField("Item name", text: $newItemName)
                         .font(FTFonts.bodyLarge)
+                        .foregroundStyle(Color.ftPrimary)
+                        .tint(Color.ftPrimary)
                         .padding(FTSpacing.md)
                         .background(Color.ftSurfaceContainerLow)
                         .clipShape(RoundedRectangle(cornerRadius: FTRadius.md))

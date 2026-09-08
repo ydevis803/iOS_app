@@ -74,6 +74,28 @@ final class FoodStore: ObservableObject {
         await addItem(item)
     }
 
+    /// Replaces an edited item in place, rescheduling its notification and calendar
+    /// event so a changed name or expiry date is reflected in both.
+    func updateItem(_ item: FoodItem) async {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+
+        // Tear down the previously scheduled alert/event, then reschedule from the
+        // edited values so we never leave an orphaned notification or calendar entry.
+        if let notifID = items[index].notificationID {
+            notificationManager.cancelNotification(identifier: notifID)
+        }
+        if let eventID = items[index].calendarEventID {
+            calendarManager.removeEvent(identifier: eventID)
+        }
+
+        var updated = item
+        await notificationManager.requestAuthorization()
+        updated.notificationID = notificationManager.scheduleExpiryAlert(for: updated)
+        updated.calendarEventID = await calendarManager.addExpirationEvent(for: updated)
+
+        items[index] = updated
+    }
+
     /// Removes an item and cancels its associated notification and calendar event.
     func removeItem(_ item: FoodItem) {
         if let notifID = item.notificationID {
@@ -83,6 +105,17 @@ final class FoodStore: ObservableObject {
             calendarManager.removeEvent(identifier: eventID)
         }
         items.removeAll { $0.id == item.id }
+    }
+
+    /// Marks a recipe as cooked by using up its ingredients: removes every pantry
+    /// item whose name matches one of the recipe's ingredients (and cancels their
+    /// alerts/calendar events). Returns the names that were used.
+    @discardableResult
+    func markCooked(_ recipe: Recipe) -> [String] {
+        let names = Set(recipe.ingredients)
+        let used = items.filter { names.contains($0.name) }
+        used.forEach { removeItem($0) }
+        return used.map(\.name)
     }
 
     /// Appends a new entry to the shopping list.
@@ -112,6 +145,13 @@ final class FoodStore: ObservableObject {
     /// All items ordered by how soon they expire.
     var sortedItems: [FoodItem] {
         items.sorted { $0.daysUntilExpiry < $1.daysUntilExpiry }
+    }
+
+    /// Items worth alerting about — expiring within four days or already expired —
+    /// soonest first. Drives the notification bell's badge and list.
+    var itemsNeedingAttention: [FoodItem] {
+        items.filter { $0.daysUntilExpiry <= 4 }
+            .sorted { $0.daysUntilExpiry < $1.daysUntilExpiry }
     }
 
     /// Items expiring on a specific calendar day.

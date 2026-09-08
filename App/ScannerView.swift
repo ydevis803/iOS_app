@@ -28,18 +28,23 @@ struct ScannerView: View {
                 Spacer()
             }
             .padding(.top, 60)
-            .padding(.bottom, viewModel.step == .barcode ? 160 : 320)
+            .padding(.bottom, viewModel.step == .photo ? 220 : 320)
 
-            if viewModel.step == .barcode, let notice = CameraNotice(state: viewModel.cameraState) {
+            if viewModel.step == .photo, let notice = CameraNotice(state: viewModel.cameraState) {
                 notice.transition(.opacity)
             }
 
             VStack {
                 Spacer()
                 switch viewModel.step {
-                case .barcode:
-                    BarcodeStepFooter(onSkip: { viewModel.skipBarcode() }, onAddManual: addManually)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                case .photo:
+                    PhotoStepFooter(
+                        isCapturing: viewModel.isCapturing,
+                        onCapture: { viewModel.capturePhoto() },
+                        onSkip: { viewModel.skipPhoto() },
+                        onAddManual: addManually
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 case .date:
                     DateStepSheet(viewModel: viewModel)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -64,7 +69,7 @@ struct ScannerView: View {
             if viewModel.isCameraLive {
                 DataScannerView(
                     isActive: viewModel.step != .confirm,
-                    onBarcode: { viewModel.handleRecognizedBarcode($0) },
+                    camera: viewModel.camera,
                     onText: { viewModel.handleRecognizedText($0) }
                 )
             }
@@ -75,7 +80,7 @@ struct ScannerView: View {
 
     private var topControls: some View {
         HStack {
-            if viewModel.step == .barcode {
+            if viewModel.step == .photo {
                 circleButton(systemImage: "xmark", identifier: "scanner.close") { dismiss() }
             } else {
                 circleButton(systemImage: "chevron.left", identifier: "scanner.back") { viewModel.goBack() }
@@ -128,7 +133,7 @@ struct ScannerStepsPill: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            segment(number: 1, title: "Barcode", isActive: step == .barcode, isDone: step != .barcode)
+            segment(number: 1, title: "Photo", isActive: step == .photo, isDone: step != .photo)
             Rectangle()
                 .fill(.white.opacity(0.3))
                 .frame(width: 1, height: 14)

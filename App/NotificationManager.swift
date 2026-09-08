@@ -8,6 +8,8 @@ import UserNotifications
 @MainActor
 final class NotificationManager: ObservableObject {
     @Published var isAuthorized = false
+    /// The system's current authorization status, refreshed via ``refreshAuthorizationStatus()``.
+    @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
     /// Requests alert/badge/sound authorization and records the result in ``isAuthorized``.
     func requestAuthorization() async {
@@ -18,6 +20,15 @@ final class NotificationManager: ObservableObject {
         } catch {
             isAuthorized = false
         }
+        await refreshAuthorizationStatus()
+    }
+
+    /// Reads the current notification settings without prompting, so the UI can
+    /// reflect whether alerts are on, off, or not yet decided.
+    func refreshAuthorizationStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        authorizationStatus = settings.authorizationStatus
+        isAuthorized = settings.authorizationStatus == .authorized
     }
 
     /// Schedule a notification 2 days before the expiration date.

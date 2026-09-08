@@ -20,7 +20,7 @@ final class ScannerViewModel: ObservableObject {
 
     /// The scanner's three screens, in order.
     enum Step: Equatable {
-        case barcode
+        case photo
         case date
         case confirm
     }
@@ -43,7 +43,7 @@ final class ScannerViewModel: ObservableObject {
         var category: FoodCategory = .other
     }
 
-    @Published private(set) var step: Step = .barcode
+    @Published private(set) var step: Step = .photo
     @Published var draft = Draft()
     @Published var dateEntryMode: DateEntryMode = .scanning
     /// A date read from the label, shown for confirmation before it is used.
@@ -51,13 +51,20 @@ final class ScannerViewModel: ObservableObject {
     @Published var typedDate: Date
     @Published private(set) var cameraState: CameraState = .idle
     @Published var isFlashOn = false
+    /// `true` while a still is being captured and recognized.
+    @Published private(set) var isCapturing = false
+    /// A short caption describing how the name was obtained (label vs. photo).
+    @Published private(set) var recognitionNote: String?
+
+    /// Bridge to the VisionKit controller's still-photo capture.
+    let camera = ScannerCamera()
 
     private let authorizationStatus: () -> AVAuthorizationStatus
     private let requestAccess: () async -> Bool
     private let isScannerAvailable: @MainActor () -> Bool
     private let parser: ExpiryDateParser
     private let now: () -> Date
-    private var lastBarcode: String?
+    private let recognizeItem: (UIImage) async -> ItemRecognition?
 
     /// - Parameters:
     ///   - authorizationStatus: Camera permission lookup (defaults to `AVCaptureDevice`).
@@ -65,6 +72,8 @@ final class ScannerViewModel: ObservableObject {
     ///   - isScannerAvailable: Whether VisionKit's data scanner can run on this device.
     ///   - parser: Expiry-date parser applied to recognized label text.
     ///   - now: Clock, injectable for deterministic tests.
+    ///   - recognizeItem: Names an item from a captured photo (label OCR, then
+    ///     produce classification); injectable so the capture flow can be tested.
     init(
         authorizationStatus: @escaping () -> AVAuthorizationStatus = {
             AVCaptureDevice.authorizationStatus(for: .video)
@@ -76,13 +85,15 @@ final class ScannerViewModel: ObservableObject {
             DataScannerViewController.isSupported && DataScannerViewController.isAvailable
         },
         parser: ExpiryDateParser = ExpiryDateParser(),
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        recognizeItem: @escaping (UIImage) async -> ItemRecognition? = { await ItemPhotoRecognizer.recognize($0) }
     ) {
         self.authorizationStatus = authorizationStatus
         self.requestAccess = requestAccess
         self.isScannerAvailable = isScannerAvailable
         self.parser = parser
         self.now = now
+        self.recognizeItem = recognizeItem
         typedDate = Calendar.current.date(byAdding: .day, value: 7, to: now()) ?? now()
     }
 
@@ -148,7 +159,14 @@ final class ScannerViewModel: ObservableObject {
     }
 
     func toggleFlash() {
-        guard let device = AVCaptureDevice.default(for: .video), device.hasTorch else { return }
+        // VisionKit's data scanner owns the capture session out-of-process and
+        // exposes no torch control, so we configure the device ourselves. Only do
+        // so while the camera is actually running and the torch is currently
+        // usable — locking the framework-owned device otherwise trips the
+        // FigCaptureSourceRemote assert (err=-17281).
+        guard cameraState == .running,
+              let device = AVCaptureDevice.default(for: .video),
+              device.hasTorch, device.isTorchAvailable else { return }
         do {
             try device.lockForConfiguration()
             isFlashOn.toggle()
@@ -157,26 +175,43 @@ final class ScannerViewModel: ObservableObject {
         } catch {}
     }
 
-    // MARK: - Step 1: barcode
+    // MARK: - Step 1: photo
 
-    /// Accepts a barcode only on the barcode step, looks up the product, and
-    /// moves on to the date step.
-    func handleRecognizedBarcode(_ payload: String) {
-        guard step == .barcode, payload != lastBarcode else { return }
-        lastBarcode = payload
-        draft.barcode = payload
-        if let product = ProductCatalog.lookup(barcode: payload) {
-            draft.name = product.name
-            draft.brand = product.brand
-            draft.category = product.category
+    /// Captures a still and names the item from it, then advances to the date
+    /// step. If nothing can be recognized (or there's no camera) it still advances
+    /// with an empty name for the user to fill in on the confirm step.
+    func capturePhoto() {
+        guard step == .photo, !isCapturing else { return }
+        Task { await performCapture() }
+    }
+
+    /// The async body of ``capturePhoto()``, separated so tests can await it.
+    func performCapture() async {
+        guard step == .photo, !isCapturing else { return }
+        isCapturing = true
+        defer { isCapturing = false }
+
+        // Capture a still (nil on the simulator / when no camera), then name it.
+        var result: ItemRecognition?
+        if let image = await camera.capture?() {
+            result = await recognizeItem(image)
         }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+        if let result {
+            draft.name = result.name
+            if let category = result.category { draft.category = category }
+            recognitionNote = result.note
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } else {
+            recognitionNote = nil
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        }
         advance(to: .date)
     }
 
-    /// Loose produce and unpackaged items have no barcode.
-    func skipBarcode() {
-        guard step == .barcode else { return }
+    /// Skips the photo for items the user would rather name by hand.
+    func skipPhoto() {
+        guard step == .photo else { return }
         advance(to: .date)
     }
 
@@ -229,12 +264,12 @@ final class ScannerViewModel: ObservableObject {
 
     func goBack() {
         switch step {
-        case .barcode:
+        case .photo:
             break
         case .date:
             recognizedDate = nil
             dateEntryMode = .scanning
-            advance(to: .barcode)
+            advance(to: .photo)
         case .confirm:
             advance(to: .date)
         }
@@ -266,30 +301,7 @@ final class ScannerViewModel: ObservableObject {
         draft = Draft()
         recognizedDate = nil
         dateEntryMode = .scanning
-        lastBarcode = nil
-        step = .barcode
-    }
-}
-
-// MARK: - Product lookup
-
-/// Barcode → product details. A local demo table for now; a production build
-/// would query a service such as Open Food Facts.
-enum ProductCatalog {
-    struct Product: Equatable {
-        let name: String
-        let brand: String
-        let category: FoodCategory
-    }
-
-    private static let byPrefix: [String: Product] = [
-        "049000": Product(name: "Coca-Cola", brand: "The Coca-Cola Company", category: .beverage),
-        "041570": Product(name: "Almond Milk", brand: "Nature's Best", category: .beverage),
-        "021130": Product(name: "Dannon Yogurt", brand: "Dannon", category: .dairy)
-    ]
-
-    /// Looks a barcode up by its manufacturer prefix.
-    static func lookup(barcode: String) -> Product? {
-        byPrefix[String(barcode.prefix(6))]
+        recognitionNote = nil
+        step = .photo
     }
 }

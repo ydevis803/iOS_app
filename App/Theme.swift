@@ -7,72 +7,72 @@ import SwiftUI
 // Backed by Color Sets in Assets.xcassets (per §4 Xcode Readiness). The asset
 // name matches each token name, enabling future light/dark variants in the catalog.
 
-extension Color {
+struct FTColors {
     // Primary
-    static let ftPrimary = Color("ftPrimary", bundle: .main)
-    static let ftOnPrimary = Color("ftOnPrimary", bundle: .main)
-    static let ftPrimaryContainer = Color("ftPrimaryContainer", bundle: .main)
-    static let ftOnPrimaryContainer = Color("ftOnPrimaryContainer", bundle: .main)
-    static let ftPrimaryFixed = Color("ftPrimaryFixed", bundle: .main)
-    static let ftPrimaryFixedDim = Color("ftPrimaryFixedDim", bundle: .main)
-    static let ftOnPrimaryFixed = Color("ftOnPrimaryFixed", bundle: .main)
-    static let ftOnPrimaryFixedVariant = Color("ftOnPrimaryFixedVariant", bundle: .main)
-    static let ftInversePrimary = Color("ftInversePrimary", bundle: .main)
+    static let primary = Color("ftPrimary", bundle: .main)
+    static let onPrimary = Color("ftOnPrimary", bundle: .main)
+    static let primaryContainer = Color("ftPrimaryContainer", bundle: .main)
+    static let onPrimaryContainer = Color("ftOnPrimaryContainer", bundle: .main)
+    static let primaryFixed = Color("ftPrimaryFixed", bundle: .main)
+    static let primaryFixedDim = Color("ftPrimaryFixedDim", bundle: .main)
+    static let onPrimaryFixed = Color("ftOnPrimaryFixed", bundle: .main)
+    static let onPrimaryFixedVariant = Color("ftOnPrimaryFixedVariant", bundle: .main)
+    static let inversePrimary = Color("ftInversePrimary", bundle: .main)
 
     // Secondary
-    static let ftSecondary = Color("ftSecondary", bundle: .main)
-    static let ftOnSecondary = Color("ftOnSecondary", bundle: .main)
-    static let ftSecondaryContainer = Color("ftSecondaryContainer", bundle: .main)
-    static let ftOnSecondaryContainer = Color("ftOnSecondaryContainer", bundle: .main)
-    static let ftSecondaryFixed = Color("ftSecondaryFixed", bundle: .main)
-    static let ftSecondaryFixedDim = Color("ftSecondaryFixedDim", bundle: .main)
-    static let ftOnSecondaryFixed = Color("ftOnSecondaryFixed", bundle: .main)
-    static let ftOnSecondaryFixedVariant = Color("ftOnSecondaryFixedVariant", bundle: .main)
+    static let secondary = Color("ftSecondary", bundle: .main)
+    static let onSecondary = Color("ftOnSecondary", bundle: .main)
+    static let secondaryContainer = Color("ftSecondaryContainer", bundle: .main)
+    static let onSecondaryContainer = Color("ftOnSecondaryContainer", bundle: .main)
+    static let secondaryFixed = Color("ftSecondaryFixed", bundle: .main)
+    static let secondaryFixedDim = Color("ftSecondaryFixedDim", bundle: .main)
+    static let onSecondaryFixed = Color("ftOnSecondaryFixed", bundle: .main)
+    static let onSecondaryFixedVariant = Color("ftOnSecondaryFixedVariant", bundle: .main)
 
     // Tertiary
-    static let ftTertiary = Color("ftTertiary", bundle: .main)
-    static let ftOnTertiary = Color("ftOnTertiary", bundle: .main)
-    static let ftTertiaryContainer = Color("ftTertiaryContainer", bundle: .main)
-    static let ftOnTertiaryContainer = Color("ftOnTertiaryContainer", bundle: .main)
-    static let ftTertiaryFixed = Color("ftTertiaryFixed", bundle: .main)
-    static let ftTertiaryFixedDim = Color("ftTertiaryFixedDim", bundle: .main)
-    static let ftOnTertiaryFixed = Color("ftOnTertiaryFixed", bundle: .main)
-    static let ftOnTertiaryFixedVariant = Color("ftOnTertiaryFixedVariant", bundle: .main)
+    static let tertiary = Color("ftTertiary", bundle: .main)
+    static let onTertiary = Color("ftOnTertiary", bundle: .main)
+    static let tertiaryContainer = Color("ftTertiaryContainer", bundle: .main)
+    static let onTertiaryContainer = Color("ftOnTertiaryContainer", bundle: .main)
+    static let tertiaryFixed = Color("ftTertiaryFixed", bundle: .main)
+    static let tertiaryFixedDim = Color("ftTertiaryFixedDim", bundle: .main)
+    static let onTertiaryFixed = Color("ftOnTertiaryFixed", bundle: .main)
+    static let onTertiaryFixedVariant = Color("ftOnTertiaryFixedVariant", bundle: .main)
 
     // Error
-    static let ftError = Color("ftError", bundle: .main)
-    static let ftOnError = Color("ftOnError", bundle: .main)
-    static let ftErrorContainer = Color("ftErrorContainer", bundle: .main)
-    static let ftOnErrorContainer = Color("ftOnErrorContainer", bundle: .main)
+    static let error = Color("ftError", bundle: .main)
+    static let onError = Color("ftOnError", bundle: .main)
+    static let errorContainer = Color("ftErrorContainer", bundle: .main)
+    static let onErrorContainer = Color("ftOnErrorContainer", bundle: .main)
 
     // Surface / Background
-    static let ftSurface = Color("ftSurface", bundle: .main)
-    static let ftSurfaceBright = Color("ftSurfaceBright", bundle: .main)
-    static let ftSurfaceDim = Color("ftSurfaceDim", bundle: .main)
-    static let ftSurfaceContainerLowest = Color("ftSurfaceContainerLowest", bundle: .main)
-    static let ftSurfaceContainerLow = Color("ftSurfaceContainerLow", bundle: .main)
-    static let ftSurfaceContainer = Color("ftSurfaceContainer", bundle: .main)
-    static let ftSurfaceContainerHigh = Color("ftSurfaceContainerHigh", bundle: .main)
-    static let ftSurfaceContainerHighest = Color("ftSurfaceContainerHighest", bundle: .main)
-    static let ftSurfaceVariant = Color("ftSurfaceVariant", bundle: .main)
-    static let ftSurfaceTint = Color("ftSurfaceTint", bundle: .main)
-    static let ftBackground = Color("ftBackground", bundle: .main)
+    static let surface = Color("ftSurface", bundle: .main)
+    static let surfaceBright = Color("ftSurfaceBright", bundle: .main)
+    static let surfaceDim = Color("ftSurfaceDim", bundle: .main)
+    static let surfaceContainerLowest = Color("ftSurfaceContainerLowest", bundle: .main)
+    static let surfaceContainerLow = Color("ftSurfaceContainerLow", bundle: .main)
+    static let surfaceContainer = Color("ftSurfaceContainer", bundle: .main)
+    static let surfaceContainerHigh = Color("ftSurfaceContainerHigh", bundle: .main)
+    static let surfaceContainerHighest = Color("ftSurfaceContainerHighest", bundle: .main)
+    static let surfaceVariant = Color("ftSurfaceVariant", bundle: .main)
+    static let surfaceTint = Color("ftSurfaceTint", bundle: .main)
+    static let background = Color("ftBackground", bundle: .main)
 
     // On Surface
-    static let ftOnSurface = Color("ftOnSurface", bundle: .main)
-    static let ftOnSurfaceVariant = Color("ftOnSurfaceVariant", bundle: .main)
-    static let ftOnBackground = Color("ftOnBackground", bundle: .main)
+    static let onSurface = Color("ftOnSurface", bundle: .main)
+    static let onSurfaceVariant = Color("ftOnSurfaceVariant", bundle: .main)
+    static let onBackground = Color("ftOnBackground", bundle: .main)
 
     // Outline
-    static let ftOutline = Color("ftOutline", bundle: .main)
-    static let ftOutlineVariant = Color("ftOutlineVariant", bundle: .main)
+    static let outline = Color("ftOutline", bundle: .main)
+    static let outlineVariant = Color("ftOutlineVariant", bundle: .main)
 
     // Inverse
-    static let ftInverseSurface = Color("ftInverseSurface", bundle: .main)
-    static let ftInverseOnSurface = Color("ftInverseOnSurface", bundle: .main)
+    static let inverseSurface = Color("ftInverseSurface", bundle: .main)
+    static let inverseOnSurface = Color("ftInverseOnSurface", bundle: .main)
 
     // Navigation
-    static let ftNavInactive = Color("ftNavInactive", bundle: .main)
+    static let navInactive = Color("ftNavInactive", bundle: .main)
 }
 
 // MARK: - Hex Color Initializer

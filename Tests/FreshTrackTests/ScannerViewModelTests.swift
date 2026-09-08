@@ -1,4 +1,5 @@
 import AVFoundation
+import UIKit
 import XCTest
 @testable import FreshTrack
 
@@ -8,13 +9,18 @@ final class ScannerViewModelTests: XCTestCase {
     private lazy var today = calendar.date(from: DateComponents(year: 2026, month: 9, day: 7, hour: 10))!
 
     /// A view model with an authorized, available camera and a fixed clock.
-    private func makeReady(scannerAvailable: Bool = true) -> ScannerViewModel {
+    /// `recognizeItem` is injectable so the photo-capture flow can be tested.
+    private func makeReady(
+        scannerAvailable: Bool = true,
+        recognizeItem: @escaping (UIImage) async -> ItemRecognition? = { _ in nil }
+    ) -> ScannerViewModel {
         let viewModel = ScannerViewModel(
             authorizationStatus: { .authorized },
             requestAccess: { true },
             isScannerAvailable: { scannerAvailable },
             parser: ExpiryDateParser(today: today, locale: Locale(identifier: "en_US"), calendar: calendar),
-            now: { [today] in today }
+            now: { [today] in today },
+            recognizeItem: recognizeItem
         )
         viewModel.startScanning()
         return viewModel
@@ -86,46 +92,53 @@ final class ScannerViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isCameraLive)
     }
 
-    // MARK: Step 1 → 2 → 3
+    // MARK: Step 1 (photo) → 2 (date) → 3 (confirm)
 
-    func testBarcodeAdvancesToDateStepWithProductDetails() {
-        let viewModel = makeReady()
-        XCTAssertEqual(viewModel.step, .barcode)
+    func testCapturePrefillsNameAndCategoryThenAdvances() async {
+        let recognition = ItemRecognition(name: "Hass Avocado", category: .produce, source: .classified)
+        let viewModel = makeReady(recognizeItem: { _ in recognition })
+        viewModel.camera.capture = { UIImage() }
+        XCTAssertEqual(viewModel.step, .photo)
 
-        viewModel.handleRecognizedBarcode("0415700560291")
+        await viewModel.performCapture()
 
         XCTAssertEqual(viewModel.step, .date)
-        XCTAssertEqual(viewModel.draft.name, "Almond Milk")
-        XCTAssertEqual(viewModel.draft.brand, "Nature's Best")
-        XCTAssertEqual(viewModel.draft.category, .beverage)
-        XCTAssertEqual(viewModel.draft.barcode, "0415700560291")
+        XCTAssertEqual(viewModel.draft.name, "Hass Avocado")
+        XCTAssertEqual(viewModel.draft.category, .produce)
+        XCTAssertEqual(viewModel.recognitionNote, "Recognized from the photo")
+        XCTAssertFalse(viewModel.isCapturing)
     }
 
-    func testUnknownBarcodeStillAdvancesWithEmptyName() {
+    func testCaptureWithoutACameraStillAdvancesWithEmptyName() async {
+        // No `camera.capture` bridge assigned → no image, nothing recognized.
         let viewModel = makeReady()
-        viewModel.handleRecognizedBarcode("9999999999999")
+
+        await viewModel.performCapture()
+
         XCTAssertEqual(viewModel.step, .date)
         XCTAssertEqual(viewModel.draft.name, "")
-        XCTAssertEqual(viewModel.draft.barcode, "9999999999999")
+        XCTAssertNil(viewModel.recognitionNote)
     }
 
-    func testBarcodesAreIgnoredOutsideTheBarcodeStep() {
-        let viewModel = makeReady()
-        viewModel.skipBarcode()
-        XCTAssertEqual(viewModel.step, .date)
+    func testCaptureIsIgnoredOutsideThePhotoStep() async {
+        let viewModel = makeReady(recognizeItem: { _ in
+            ItemRecognition(name: "Should not apply", category: nil, source: .label)
+        })
+        viewModel.skipPhoto()
+        viewModel.camera.capture = { UIImage() }
 
-        viewModel.handleRecognizedBarcode("0415700560291")
+        await viewModel.performCapture()
 
-        XCTAssertNil(viewModel.draft.barcode)
-        XCTAssertEqual(viewModel.step, .date)
+        XCTAssertEqual(viewModel.step, .date, "Capturing off the photo step must not advance again")
+        XCTAssertEqual(viewModel.draft.name, "")
     }
 
     func testLabelTextIsParsedOnlyOnTheDateStep() {
         let viewModel = makeReady()
         viewModel.handleRecognizedText("BEST BY 14 SEP 2026")
-        XCTAssertNil(viewModel.recognizedDate, "Text on the barcode step must be ignored")
+        XCTAssertNil(viewModel.recognizedDate, "Text on the photo step must be ignored")
 
-        viewModel.skipBarcode()
+        viewModel.skipPhoto()
         viewModel.handleRecognizedText("NET WT 12 OZ")
         XCTAssertNil(viewModel.recognizedDate)
 
@@ -139,7 +152,8 @@ final class ScannerViewModelTests: XCTestCase {
 
     func testUseRecognizedDateMovesToConfirmWithoutEstimateFlag() {
         let viewModel = makeReady()
-        viewModel.handleRecognizedBarcode("0415700560291")
+        viewModel.skipPhoto()
+        viewModel.draft.name = "Almond Milk"
         viewModel.handleRecognizedText("14 SEP 2026")
 
         viewModel.useRecognizedDate()
@@ -153,7 +167,7 @@ final class ScannerViewModelTests: XCTestCase {
 
     func testEstimatePathTagsTheItemAndUsesTheCategory() {
         let viewModel = makeReady()
-        viewModel.skipBarcode()
+        viewModel.skipPhoto()
         viewModel.startEstimating()
         viewModel.draft.category = .produce
 
@@ -177,7 +191,7 @@ final class ScannerViewModelTests: XCTestCase {
 
     func testTypedDatePath() {
         let viewModel = makeReady()
-        viewModel.skipBarcode()
+        viewModel.skipPhoto()
         viewModel.startTypingDate()
         XCTAssertEqual(viewModel.dateEntryMode, .typing)
         viewModel.typedDate = calendar.date(from: DateComponents(year: 2026, month: 12, day: 24))!
@@ -191,7 +205,8 @@ final class ScannerViewModelTests: XCTestCase {
 
     func testGoBackRetracesStepsAndClearsTheCandidateDate() {
         let viewModel = makeReady()
-        viewModel.handleRecognizedBarcode("0415700560291")
+        viewModel.skipPhoto()
+        viewModel.draft.name = "Almond Milk"
         viewModel.handleRecognizedText("14 SEP 2026")
         viewModel.useRecognizedDate()
         XCTAssertEqual(viewModel.step, .confirm)
@@ -199,25 +214,28 @@ final class ScannerViewModelTests: XCTestCase {
         viewModel.goBack()
         XCTAssertEqual(viewModel.step, .date)
         viewModel.goBack()
-        XCTAssertEqual(viewModel.step, .barcode)
+        XCTAssertEqual(viewModel.step, .photo)
         XCTAssertNil(viewModel.recognizedDate)
         viewModel.goBack()
-        XCTAssertEqual(viewModel.step, .barcode)
+        XCTAssertEqual(viewModel.step, .photo)
     }
 
     func testResetClearsEverything() {
         let viewModel = makeReady()
-        viewModel.handleRecognizedBarcode("0415700560291")
+        viewModel.skipPhoto()
+        viewModel.draft.name = "Almond Milk"
         viewModel.handleRecognizedText("14 SEP 2026")
         viewModel.useRecognizedDate()
 
         viewModel.reset()
 
-        XCTAssertEqual(viewModel.step, .barcode)
+        XCTAssertEqual(viewModel.step, .photo)
         XCTAssertEqual(viewModel.draft, ScannerViewModel.Draft())
         XCTAssertNil(viewModel.recognizedDate)
-        // The same barcode can be scanned again after a reset.
-        viewModel.handleRecognizedBarcode("0415700560291")
+        XCTAssertNil(viewModel.recognitionNote)
+
+        // The flow can be driven again after a reset.
+        viewModel.skipPhoto()
         XCTAssertEqual(viewModel.step, .date)
     }
 }
