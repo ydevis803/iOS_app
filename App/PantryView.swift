@@ -490,7 +490,7 @@ struct EditItemSheet: View {
                     pickerField(label: "CATEGORY") {
                         Picker("Category", selection: $viewModel.category) {
                             ForEach(FoodCategory.allCases, id: \.self) { c in
-                                Label(c.rawValue, systemImage: c.icon).tag(c)
+                                Text(c.rawValue).tag(c)
                             }
                         }
                     }
@@ -498,7 +498,7 @@ struct EditItemSheet: View {
                     pickerField(label: "STORAGE") {
                         Picker("Placement", selection: $viewModel.placement) {
                             ForEach(StoragePlacement.allCases, id: \.self) { p in
-                                Label(p.label, systemImage: p.icon).tag(p)
+                                Text(p.label).tag(p)
                             }
                         }
                     }

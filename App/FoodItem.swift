@@ -146,16 +146,16 @@ enum FoodCategory: String, Codable, CaseIterable, Hashable {
 
     var icon: String {
         switch self {
-        case .dairy: return "cup.and.saucer"
-        case .produce: return "leaf"
-        case .meat: return "fork.knife"
+        case .dairy: return "waterbottle"
+        case .produce: return "carrot"
+        case .meat: return "bird"
         case .bakery: return "birthday.cake"
         case .beverage: return "mug"
         case .frozen: return "snowflake"
-        case .grain: return "sparkles"
+        case .grain: return "leaf"
         case .condiment: return "drop"
         case .snack: return "popcorn"
-        case .other: return "bag"
+        case .other: return "basket"
         }
     }
 }
