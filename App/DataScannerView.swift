@@ -14,9 +14,20 @@ struct DataScannerView: UIViewControllerRepresentable {
     let camera: ScannerCamera
     let onText: @MainActor (String) -> Void
 
+    /// Languages to run text recognition in. VisionKit otherwise defaults to the
+    /// device locale, which throws "Locale not supported" for languages Vision
+    /// can't OCR (e.g. Dutch). Printed expiry dates are numeric/English, so we
+    /// request English and fall back to whatever the device does support.
+    static var textRecognitionLanguages: [String] {
+        let supported = DataScannerViewController.supportedTextRecognitionLanguages
+        let preferred = ["en-US", "en-GB"].filter(supported.contains)
+        if !preferred.isEmpty { return preferred }
+        return Array(supported.prefix(1))
+    }
+
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let controller = DataScannerViewController(
-            recognizedDataTypes: [.text()],
+            recognizedDataTypes: [.text(languages: Self.textRecognitionLanguages)],
             qualityLevel: .balanced,
             recognizesMultipleItems: false,
             // We draw only a static target overlay (no per-item custom highlights
