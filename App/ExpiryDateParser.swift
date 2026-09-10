@@ -87,6 +87,16 @@ struct ExpiryDateParser {
         // SEP 2026 / SEPT-2026 → last day of the month (not the tail of "31 FEB 2027")
         Pattern(regex: #"(?<!\d\s)(?<!\d)(?<!\d-)\b([A-Z]{3,9})\.?\s*[-/ ]?\s*(20\d{2})\b"#) { g, p in
             p.makeEndOfMonth(year: g[1], month: p.month(named: g[0]))
+        },
+        // Year-less month-name stamps assume the current year. Listed after the
+        // dated patterns so a full date at the same position always wins.
+        // 14 SEP / 31 FEB / 14SEP — day + month name
+        Pattern(regex: #"\b(\d{1,2})\s*[-/. ]?\s*([A-Z]{3,9})\b"#) { g, p in
+            p.makeDate(year: p.currentYear, month: p.month(named: g[1]), day: Int(g[0]))
+        },
+        // SEP 14 / FEB 31 — month name + day
+        Pattern(regex: #"\b([A-Z]{3,9})\.?\s*(\d{1,2})\b"#) { g, p in
+            p.makeDate(year: p.currentYear, month: p.month(named: g[0]), day: Int(g[1]))
         }
     ]
 
@@ -109,12 +119,22 @@ struct ExpiryDateParser {
         return text.count == 2 ? 2000 + value : value
     }
 
+    /// Year for stamps that omit it — assume the current year.
+    private var currentYear: Int { calendar.component(.year, from: today) }
+
     private func makeDate(year yearText: String, month: Int?, day: Int?) -> Date? {
-        guard let year = parseYear(yearText), let month, let day,
-              (1...12).contains(month), (1...31).contains(day) else { return nil }
-        let components = DateComponents(year: year, month: month, day: day)
-        guard let date = calendar.date(from: components),
-              calendar.component(.day, from: date) == day else { return nil } // rejects 31 Feb
+        guard let year = parseYear(yearText) else { return nil }
+        return makeDate(year: year, month: month, day: day)
+    }
+
+    /// Builds a date, clamping an out-of-range day to the month's last day so a
+    /// stamp like "31 FEB" resolves to the end of February rather than being lost.
+    private func makeDate(year: Int, month: Int?, day: Int?) -> Date? {
+        guard let month, let day, (1...12).contains(month), (1...31).contains(day),
+              let first = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+              let range = calendar.range(of: .day, in: .month, for: first),
+              let date = calendar.date(from: DateComponents(year: year, month: month, day: min(day, range.count)))
+        else { return nil }
         return isPlausible(date) ? date : nil
     }
 
