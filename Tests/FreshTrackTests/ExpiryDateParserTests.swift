@@ -52,10 +52,24 @@ final class ExpiryDateParserTests: XCTestCase {
 
     func testRejectsImplausibleAndInvalidDates() {
         XCTAssertNil(parser().date(in: "PACKED 12/03/2019"), "Years back are packing dates, not expiry dates")
-        XCTAssertNil(parser().date(in: "31 FEB 2027"))
         XCTAssertNil(parser().date(in: "13/13/2026"))
         XCTAssertNil(parser().date(in: "NET WT 12 OZ 340 G"))
         XCTAssertNil(parser().date(in: ""))
+    }
+
+    func testClampsOutOfRangeDayToEndOfMonth() {
+        // "31 FEB" isn't a real date; clamp to the last day of February rather than lose it.
+        XCTAssertEqual(ymd(parser().date(in: "31 FEB 2027")), [2027, 2, 28])
+        XCTAssertEqual(ymd(parser().date(in: "31 APR 2026")), [2026, 4, 30])
+    }
+
+    func testYearlessStampsAssumeCurrentYear() {
+        // Anchored to 2026, so a missing year fills in as 2026.
+        XCTAssertEqual(ymd(parser().date(in: "BEST BY 14 SEP")), [2026, 9, 14])
+        XCTAssertEqual(ymd(parser().date(in: "SEP 14")), [2026, 9, 14])
+        XCTAssertEqual(ymd(parser().date(in: "31 FEB")), [2026, 2, 28])
+        // A printed year still takes precedence over the year-less reading.
+        XCTAssertEqual(ymd(parser().date(in: "14 SEP 2027")), [2027, 9, 14])
     }
 
     func testPicksTheFirstDateWhenSeveralAppear() {
